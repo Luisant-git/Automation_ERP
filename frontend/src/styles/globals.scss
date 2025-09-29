@@ -1,0 +1,14 @@
+// Global styles + Ant Design token helpers
+:root {
+  --erp-primary: #1c77c3;
+  --erp-accent: #f69055;
+  --erp-bg: #f7f9fc;
+}
+html, body, #root { height: 100%; }
+body { margin: 0; background: var(--erp-bg); font-family: "Segoe UI", Roboto, Arial, sans-serif; }
+.page-header {
+  display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px;
+}
+.kpi {
+  display:flex; align-items:center; gap:12px;
+}
