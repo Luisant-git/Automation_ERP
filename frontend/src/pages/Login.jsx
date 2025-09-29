@@ -35,7 +35,7 @@ const Login = ({ onLogin }) => {
               objectFit: 'cover'
             }}
           />
-          <Title level={3} style={{ margin: 0 }}>Automation ERP</Title>
+          <Title level={3} style={{ margin: 0 }}>Smart Edge Automation</Title>
           <Text type="secondary">Sign in to your account</Text>
         </div>
 

@@ -11,7 +11,8 @@ import ServiceMaster from './pages/masters/ServiceMaster'
 import EmployeeMaster from './pages/masters/EmployeeMaster'
 import LedgerMaster from './pages/masters/LedgerMaster'
 import PurchaseOrderEntry from './modules/project/po/entry'
-import SalesInvoiceForm from './modules/project/invoice/SalesInvoiceForm'
+
+import SalesOrderForm from './modules/project/invoice/SalesInvoiceForm'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -52,7 +53,8 @@ export default function App() {
           <Route path="masters/employees" element={<EmployeeMaster />} />
           <Route path="masters/ledgers" element={<LedgerMaster />} />
           <Route path="procurement/purchase-orders" element={<PurchaseOrderEntry />} />
-          <Route path="sales/invoicing" element={<SalesInvoiceForm />} />
+          <Route path="sales/orders" element={<SalesOrderForm />} />
+         
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

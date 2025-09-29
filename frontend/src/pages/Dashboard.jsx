@@ -94,7 +94,7 @@ const Dashboard = () => {
             <Card size="small" style={{ textAlign: 'center', minHeight: '120px', height: '100%' }}>
               <div style={{ fontSize: '24px', fontWeight: '600', color: '#1890ff', marginBottom: '8px' }}>{kpi.value}</div>
               <div style={{ fontSize: '12px', color: '#666', margin: '4px 0' }}>{kpi.title}</div>
-              <div style={{ fontSize: '11px', color: '#999' }}>Target: {kpi.target} ({kpi.percentage.toFixed(1)}%)</div>
+              {/* <div style={{ fontSize: '11px', color: '#999' }}>Target: {kpi.target} ({kpi.percentage.toFixed(1)}%)</div> */}
             </Card>
           </Col>
         ))}

@@ -38,6 +38,39 @@ const PurchaseOrderForm = ({ onOrderSaved }) => {
     roundedOffTotal: 0
   })
   
+  const states = [
+    { code: '28', name: 'Andhra Pradesh' },
+    { code: '12', name: 'Arunachal Pradesh' },
+    { code: '18', name: 'Assam' },
+    { code: '10', name: 'Bihar' },
+    { code: '22', name: 'Chhattisgarh' },
+    { code: '07', name: 'Delhi' },
+    { code: '30', name: 'Goa' },
+    { code: '24', name: 'Gujarat' },
+    { code: '06', name: 'Haryana' },
+    { code: '02', name: 'Himachal Pradesh' },
+    { code: '01', name: 'Jammu and Kashmir' },
+    { code: '20', name: 'Jharkhand' },
+    { code: '29', name: 'Karnataka' },
+    { code: '32', name: 'Kerala' },
+    { code: '23', name: 'Madhya Pradesh' },
+    { code: '27', name: 'Maharashtra' },
+    { code: '14', name: 'Manipur' },
+    { code: '17', name: 'Meghalaya' },
+    { code: '15', name: 'Mizoram' },
+    { code: '13', name: 'Nagaland' },
+    { code: '21', name: 'Odisha' },
+    { code: '03', name: 'Punjab' },
+    { code: '08', name: 'Rajasthan' },
+    { code: '11', name: 'Sikkim' },
+    { code: '33', name: 'Tamil Nadu' },
+    { code: '36', name: 'Telangana' },
+    { code: '16', name: 'Tripura' },
+    { code: '09', name: 'Uttar Pradesh' },
+    { code: '05', name: 'Uttarakhand' },
+    { code: '19', name: 'West Bengal' }
+  ]
+  
   // Auto-generate PO Number
   const generatePONumber = () => {
     const date = new Date()
@@ -371,7 +404,7 @@ const PurchaseOrderForm = ({ onOrderSaved }) => {
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           {/* 1. Header Information */}
           <Row gutter={24}>
-            <Col span={12}>
+            {/* <Col span={12}>
               <Card size="small" title="Company Name & Logo (Auto-filled from ERP)">
                 <Form.Item name="companyName" label="Company Name">
                   <Input disabled />
@@ -404,18 +437,33 @@ const PurchaseOrderForm = ({ onOrderSaved }) => {
                   </Col>
                 </Row>
               </Card>
-            </Col>
-            <Col span={12}>
+            </Col> */}
+            <Col span={24}>
               <Card size="small" title="Purchase Order Details">
-                <Form.Item name="poNumber" label="PO Number (Auto-generated)" rules={[{ required: true }]}>
-                  <Input disabled />
-                </Form.Item>
-                <Form.Item name="date" label="Date" rules={[{ required: true }]}>
-                  <DatePicker style={{ width: '100%' }} />
-                </Form.Item>
-                <Form.Item name="referenceNo" label="Reference No. / Work Order No. (optional)">
-                  <Input placeholder="Reference/Work Order Number" />
-                </Form.Item>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item name="poNumber" label="PO Number (Auto-generated)" rules={[{ required: true }]}>
+                      <Input disabled />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="quotationNumber" label="Quotation Number">
+                      <Input placeholder="Enter quotation number" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item name="date" label="Date" rules={[{ required: true }]}>
+                      <DatePicker style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="referenceNo" label="Reference No. / Work Order No. (optional)">
+                      <Input placeholder="Reference/Work Order Number" />
+                    </Form.Item>
+                  </Col>
+                </Row>
               </Card>
             </Col>
           </Row>
@@ -440,11 +488,47 @@ const PurchaseOrderForm = ({ onOrderSaved }) => {
                   <TextArea rows={3} placeholder="Complete supplier address" />
                 </Form.Item>
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col span={8}>
+                    <Form.Item name="supplierState" label="State">
+                      <Select
+                        showSearch
+                        placeholder="Select state"
+                        optionFilterProp="children"
+                        filterOption={(input, option) => (option?.children ?? '').toLowerCase().includes(input.toLowerCase())}
+                        onChange={(value) => {
+                          const selectedState = states.find(s => s.name === value)
+                          form.setFieldValue('supplierStateCode', selectedState?.code)
+                        }}
+                      >
+                        {states.map(state => (
+                          <Option key={state.code} value={state.name}>{state.name}</Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                  <Col span={4}>
+                    <Form.Item name="supplierStateCode" label="State Code">
+                      <Input disabled />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item name="modeOfPayment" label="Mode of Payment">
+                      <Select placeholder="Select payment mode">
+                        <Option value="Cash">Cash</Option>
+                        <Option value="Credit">Credit</Option>
+                        <Option value="Cheque">Cheque</Option>
+                        <Option value="Bank Transfer">Bank Transfer</Option>
+                        <Option value="UPI">UPI</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
                     <Form.Item name="supplierContactPerson" label="Contact Person">
                       <Input placeholder="Contact person name" />
                     </Form.Item>
                   </Col>
+                </Row>
+                <Row gutter={16}>
                   <Col span={12}>
                     <Form.Item name="supplierContactDetails" label="Contact Details">
                       <Input placeholder="Phone/Email" />
