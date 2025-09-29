@@ -22,10 +22,10 @@ const { TextArea } = Input
 const { Title, Text } = Typography
 const { Option } = Select
 
-const SalesInvoiceForm = ({ onInvoiceSaved }) => {
+const SalesOrderForm = ({ onOrderSaved }) => {
   const [form] = Form.useForm()
   const [items, setItems] = useState([])
-  const [invoices, setInvoices] = useState([])
+  const [orders, setOrders] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [totals, setTotals] = useState({
     subtotal: 0,
@@ -37,22 +37,67 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
     grandTotal: 0
   })
 
-  // Auto-generate Invoice Number
-  const generateInvoiceNumber = () => {
+  // Auto-generate Order Number
+  const generateOrderNumber = () => {
     const date = new Date()
     const year = date.getFullYear().toString().slice(-2)
     const month = (date.getMonth() + 1).toString().padStart(2, '0')
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-    return `INV${year}${month}${random}`
+    return `SO${year}${month}${random}`
   }
 
-  // Initialize form and load invoices
+  // Initialize form and load orders
   useEffect(() => {
-    const savedInvoices = JSON.parse(localStorage.getItem('salesInvoices') || '[]')
-    setInvoices(savedInvoices)
+    const savedOrders = JSON.parse(localStorage.getItem('salesOrders') || '[]')
+    
+    // Add sample data if no orders exist
+    if (savedOrders.length === 0) {
+      const sampleOrders = [
+        {
+          id: 1,
+          orderNo: 'SO24120001',
+          buyerName: 'Tata Steel Ltd',
+          consigneeName: 'Tata Steel Complex',
+          totals: { grandTotal: 125000.50 },
+          items: [
+            { description: 'Industrial Motor', qty: 2, rate: 25000, amount: 50000 },
+            { description: 'Control Panel', qty: 1, rate: 75000, amount: 75000 }
+          ],
+          createdAt: '2024-12-01T10:30:00.000Z'
+        },
+        {
+          id: 2,
+          orderNo: 'SO24120002',
+          buyerName: 'Reliance Industries',
+          consigneeName: 'Reliance Refinery',
+          totals: { grandTotal: 89750.25 },
+          items: [
+            { description: 'Automation System', qty: 1, rate: 65000, amount: 65000 },
+            { description: 'Sensors Kit', qty: 5, rate: 4500, amount: 22500 }
+          ],
+          createdAt: '2024-12-02T14:15:00.000Z'
+        },
+        {
+          id: 3,
+          orderNo: 'SO24120003',
+          buyerName: 'L&T Construction',
+          consigneeName: 'L&T Project Site',
+          totals: { grandTotal: 245800.75 },
+          items: [
+            { description: 'CNC Machine Parts', qty: 10, rate: 15000, amount: 150000 },
+            { description: 'Hydraulic System', qty: 2, rate: 45000, amount: 90000 }
+          ],
+          createdAt: '2024-12-03T09:45:00.000Z'
+        }
+      ]
+      localStorage.setItem('salesOrders', JSON.stringify(sampleOrders))
+      setOrders(sampleOrders)
+    } else {
+      setOrders(savedOrders)
+    }
     
     form.setFieldsValue({
-      invoiceNo: generateInvoiceNumber(),
+      orderNo: generateOrderNumber(),
       date: dayjs(),
       supplierName: 'SMARTEDGE AUTOMATION',
       supplierAddress: '#389, 3rd Main Road, 2nd Stage, K.H.B Colony, Basaveshwaranagar, Bangalore - 560079',
@@ -60,7 +105,7 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
       supplierState: 'Karnataka',
       supplierCode: '29',
       supplierContact: 'smartedgeautomation@gmail.com, 080 23285927',
-      declaration: 'Invoice shows actual price and particulars are true',
+      declaration: 'Order shows actual price and particulars are true',
       authorizedSignatory: 'GAIKWAD',
       accountHolderName: 'SMARTEDGE AUTOMATION'
     })
@@ -251,26 +296,26 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
 
   const handleSubmit = async (values) => {
     try {
-      const invoiceData = { ...values, items, totals, createdAt: new Date().toISOString() }
-      const existing = JSON.parse(localStorage.getItem('salesInvoices') || '[]')
-      const newInvoice = { id: Date.now(), ...invoiceData }
-      existing.push(newInvoice)
-      localStorage.setItem('salesInvoices', JSON.stringify(existing))
-      setInvoices(existing)
+      const orderData = { ...values, items, totals, createdAt: new Date().toISOString() }
+      const existing = JSON.parse(localStorage.getItem('salesOrders') || '[]')
+      const newOrder = { id: Date.now(), ...orderData }
+      existing.push(newOrder)
+      localStorage.setItem('salesOrders', JSON.stringify(existing))
+      setOrders(existing)
       setShowForm(false)
       form.resetFields()
       setItems([])
-      message.success('Sales Invoice saved successfully!')
-      onInvoiceSaved && onInvoiceSaved()
+      message.success('Sales Order saved successfully!')
+      onOrderSaved && onOrderSaved()
     } catch (error) {
-      message.error('Failed to save Sales Invoice')
+      message.error('Failed to save Sales Order')
     }
   }
 
-  const invoiceColumns = [
+  const orderColumns = [
     {
-      title: 'Invoice Number',
-      dataIndex: 'invoiceNo',
+      title: 'Order Number',
+      dataIndex: 'orderNo',
       render: (text) => <strong style={{ color: '#1890ff' }}>{text || 'N/A'}</strong>
     },
     {
@@ -300,14 +345,14 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
       <div>
         <Card>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <Title level={3}>Sales Invoice Management</Title>
+            <Title level={3}>Sales Order List</Title>
             <Button type="primary" onClick={() => setShowForm(true)}>
-              Create New Invoice
+              Create New Order
             </Button>
           </div>
           <Table
-            columns={invoiceColumns}
-            dataSource={invoices}
+            columns={orderColumns}
+            dataSource={orders}
             rowKey="id"
             pagination={{ pageSize: 10 }}
           />
@@ -320,20 +365,20 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
     <div>
       <Card style={{ marginBottom: '16px' }}>
         <Button type="default" onClick={() => setShowForm(false)} style={{ marginBottom: '8px' }}>
-          ← Back to Invoice List
+          ← Back to Order List
         </Button>
       </Card>
       <Card>
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <Title level={3} style={{ margin: '0', color: '#333' }}>TAX INVOICE</Title>
+        <div style={{ textAlign: 'left', marginBottom: '24px' }}>
+          <Title level={3} style={{ margin: '0', color: '#333' }}>SALES ORDER</Title>
         </div>
 
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           {/* Header Section */}
           <Row gutter={24}>
             <Col span={12}>
-              <Card size="small" title="Invoice Details">
-                <Form.Item name="invoiceNo" label="Invoice No. (auto-generated)">
+              <Card size="small" title="Order Details">
+                <Form.Item name="orderNo" label="Order No. (auto-generated)">
                   <Input disabled />
                 </Form.Item>
                 <Form.Item name="date" label="Date" rules={[{ required: true }]}>
@@ -403,7 +448,7 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
 
           {/* Parties Information */}
           <Row gutter={24} style={{ marginTop: '16px' }}>
-            <Col span={8}>
+            {/* <Col span={8}>
               <Card size="small" title="Supplier (From)">
                 <Form.Item name="supplierName" label="Company Name">
                   <Input disabled />
@@ -430,8 +475,8 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
                   <Input disabled />
                 </Form.Item>
               </Card>
-            </Col>
-            <Col span={8}>
+            </Col> */}
+            <Col span={12}>
               <Card size="small" title="Consignee (Ship To)">
                 <Form.Item name="consigneeName" label="Company Name" rules={[{ required: true }]}>
                   <Input placeholder="Consignee name" />
@@ -456,7 +501,7 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
                 </Row>
               </Card>
             </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Card size="small" title="Buyer (Bill To)">
                 <Form.Item name="buyerName" label="Company Name" rules={[{ required: true }]}>
                   <Input placeholder="Buyer name" />
@@ -558,7 +603,7 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
           </Row>
 
           {/* Footer Section & Bank Details */}
-          <Row gutter={24} style={{ marginTop: '24px' }}>
+          {/* <Row gutter={24} style={{ marginTop: '24px' }}>
             <Col span={12}>
               <Card size="small" title="Footer Section">
                 <Form.Item name="termsOfDelivery" label="Terms of Delivery">
@@ -603,7 +648,7 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
                 </Form.Item>
               </Card>
             </Col>
-          </Row>
+          </Row> */}
         </Form>
       </Card>
 
@@ -617,7 +662,7 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
             size="large"
             style={{ minWidth: '150px' }}
           >
-            Save Invoice
+            Save Order
           </Button>
           <Button 
             icon={<PrinterOutlined />} 
@@ -633,4 +678,4 @@ const SalesInvoiceForm = ({ onInvoiceSaved }) => {
   )
 }
 
-export default SalesInvoiceForm
+export default SalesOrderForm

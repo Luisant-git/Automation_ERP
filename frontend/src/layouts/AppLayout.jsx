@@ -56,8 +56,8 @@ const menuItems = [
     label: 'Procurement',
     children: [
       { key:'/procurement/purchase-orders', label:<NavLink to="/procurement/purchase-orders">Purchase Orders</NavLink> },
-      { key:'/procurement/vendor-management', label:<NavLink to="/procurement/vendor-management">Vendor Management</NavLink> },
-      { key:'/procurement/approvals', label:<NavLink to="/procurement/approvals">Approvals</NavLink> },
+      // { key:'/procurement/vendor-management', label:<NavLink to="/procurement/vendor-management">Vendor Management</NavLink> },
+      // { key:'/procurement/approvals', label:<NavLink to="/procurement/approvals">Approvals</NavLink> },
     ]
   },
   {
@@ -76,7 +76,7 @@ const menuItems = [
     label:'Sales & Trading',
     children:[
       { key:'/sales/orders', label:<NavLink to="/sales/orders">Sales Orders</NavLink> },
-      { key:'/sales/invoicing', label:<NavLink to="/sales/invoicing">Invoicing</NavLink> },
+      // { key:'/sales/invoicing', label:<NavLink to="/sales/invoicing">Invoicing</NavLink> },
       { key:'/sales/returns', label:<NavLink to="/sales/returns">Returns</NavLink> },
     ]
   },
@@ -138,7 +138,7 @@ export default function AppLayout({ onLogout }){
         <div className={styles.headerLeft}>
           <div className={styles.logo}>
             <img src="/src/assets/logo (1).jpg" alt="Logo" style={{ width: '50px', height: '30px', borderRadius: '4px', objectFit: 'cover' }} />
-            <span>Automation ERP</span>
+            <span>Smart Edge Automation</span>
           </div>
           <div className={styles.separator}></div>
           
