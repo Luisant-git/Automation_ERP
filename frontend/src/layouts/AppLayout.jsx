@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Layout, Menu, Avatar, Dropdown, Badge, Breadcrumb, theme, Button, Input } from 'antd'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import logo from '../assets/logo (1).jpg'
 import {
   DashboardOutlined, AppstoreOutlined, TeamOutlined, ShoppingCartOutlined, BuildOutlined,
   DatabaseOutlined, SwapOutlined, BellOutlined, UserOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
@@ -137,7 +138,7 @@ export default function AppLayout({ onLogout }){
       <Header className={styles.header}>
         <div className={styles.headerLeft}>
           <div className={styles.logo}>
-            <img src="/src/assets/logo (1).jpg" alt="Logo" style={{ width: '50px', height: '30px', borderRadius: '4px', objectFit: 'cover' }} />
+            <img src={logo} alt="Logo" style={{ width: '50px', height: '30px', borderRadius: '4px', objectFit: 'cover' }} />
             <span>Smart Edge Automation</span>
           </div>
           <div className={styles.separator}></div>

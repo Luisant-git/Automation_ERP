@@ -1,6 +1,7 @@
 import React from 'react'
 import { Form, Input, Button, Card, Typography, Checkbox } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
+import logo from '../assets/logo (1).jpg'
 
 const { Title, Text } = Typography
 
@@ -25,7 +26,7 @@ const Login = ({ onLogin }) => {
       <Card style={{ width: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <img 
-            src="/src/assets/logo (1).jpg" 
+            src={logo} 
             alt="Logo" 
             style={{
               width: '100px',
