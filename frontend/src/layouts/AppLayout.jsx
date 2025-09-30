@@ -24,6 +24,10 @@ const menuItems = [
       { key:'/masters/materials', label:<NavLink to="/masters/materials">Materials</NavLink> },
       { key:'/masters/services', label:<NavLink to="/masters/services">Services</NavLink> },
       { key:'/masters/employees', label:<NavLink to="/masters/employees">Employees</NavLink> },
+      { key:'/masters/categories', label:<NavLink to="/masters/categories">Categories</NavLink> },
+      { key:'/masters/brands', label:<NavLink to="/masters/brands">Brands</NavLink> },
+      { key:'/masters/taxes', label:<NavLink to="/masters/taxes">Tax Rates</NavLink> },
+      { key:'/masters/opening-stock', label:<NavLink to="/masters/opening-stock">Opening Stock Entry</NavLink> },
       { key:'/masters/ledgers', label:<NavLink to="/masters/ledgers">Ledgers</NavLink> },
     ]
   },

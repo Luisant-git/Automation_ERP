@@ -9,7 +9,11 @@ import SupplierMaster from './pages/masters/SupplierMaster'
 import MaterialMaster from './pages/masters/MaterialMaster'
 import ServiceMaster from './pages/masters/ServiceMaster'
 import EmployeeMaster from './pages/masters/EmployeeMaster'
+import CategoryMaster from './pages/masters/CategoryMaster'
+import BrandMaster from './pages/masters/BrandMaster'
+import TaxMaster from './pages/masters/TaxMaster'
 import LedgerMaster from './pages/masters/LedgerMaster'
+import OpeningStockMaster from './pages/masters/OpeningStockMaster'
 import PurchaseOrderEntry from './modules/project/po/entry'
 
 import SalesOrderForm from './modules/project/invoice/SalesInvoiceForm'
@@ -51,6 +55,10 @@ export default function App() {
           <Route path="masters/materials" element={<MaterialMaster />} />
           <Route path="masters/services" element={<ServiceMaster />} />
           <Route path="masters/employees" element={<EmployeeMaster />} />
+          <Route path="masters/categories" element={<CategoryMaster />} />
+          <Route path="masters/brands" element={<BrandMaster />} />
+          <Route path="masters/taxes" element={<TaxMaster />} />
+          <Route path="masters/opening-stock" element={<OpeningStockMaster />} />
           <Route path="masters/ledgers" element={<LedgerMaster />} />
           <Route path="procurement/purchase-orders" element={<PurchaseOrderEntry />} />
           <Route path="sales/orders" element={<SalesOrderForm />} />

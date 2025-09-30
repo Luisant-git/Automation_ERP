@@ -6,6 +6,54 @@ const LedgerMaster = () => {
   const [form] = Form.useForm()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
+  const [selectedType, setSelectedType] = useState('')
+  const [selectedGroup, setSelectedGroup] = useState('')
+  const [isControlAccount, setIsControlAccount] = useState(false)
+  const [showBankReco, setShowBankReco] = useState(false)
+  
+  // Account Groups data
+  const accountGroups = {
+    Asset: [
+      'Bank Accounts',
+      'Cash-in-hand', 
+      'Sundry Debtors',
+      'Stock-in-hand',
+      'Fixed Assets',
+      'Investments'
+    ],
+    Liability: [
+      'Sundry Creditors',
+      'Bank Overdraft',
+      'Secured Loans',
+      'Unsecured Loans',
+      'Capital Account'
+    ],
+    Income: [
+      'Sales Account',
+      'Service Income',
+      'Other Income',
+      'Interest Income'
+    ],
+    Expense: [
+      'Purchase Account',
+      'Direct Expenses',
+      'Indirect Expenses',
+      'Administrative Expenses'
+    ]
+  }
+  
+  // Subgroups based on selected group
+  const subGroups = {
+    'Bank Accounts': ['Savings Account', 'Current Account', 'Fixed Deposit'],
+    'Cash-in-hand': ['Petty Cash', 'Cash Counter'],
+    'Sundry Debtors': ['Trade Debtors', 'Other Debtors'],
+    'Sundry Creditors': ['Trade Creditors', 'Other Creditors'],
+    'Fixed Assets': ['Land & Building', 'Plant & Machinery', 'Furniture & Fixtures'],
+    'Sales Account': ['Domestic Sales', 'Export Sales'],
+    'Purchase Account': ['Raw Material', 'Finished Goods'],
+    'Direct Expenses': ['Manufacturing', 'Labor Cost'],
+    'Indirect Expenses': ['Office Expenses', 'Marketing Expenses']
+  }
   const [ledgers, setLedgers] = useState([
     {
       key: 1,
@@ -126,6 +174,18 @@ const LedgerMaster = () => {
   ]
 
   const handleSubmit = (values) => {
+    // Check for unique code
+    const codeExists = ledgers.some(l => 
+      l.code === values.code && (!editingRecord || l.key !== editingRecord.key)
+    )
+    
+    if (codeExists) {
+      message.error('Code must be unique. This code already exists.')
+      return
+    }
+    
+    console.log('Form Data:', JSON.stringify(values, null, 2))
+    
     if (editingRecord) {
       setLedgers(ledgers.map(l => l.key === editingRecord.key ? { ...values, key: editingRecord.key } : l))
       message.success('Ledger updated successfully')
@@ -134,8 +194,56 @@ const LedgerMaster = () => {
       message.success('Ledger added successfully')
     }
     setIsModalVisible(false)
+    handleCancel()
+  }
+  
+  const handleCancel = () => {
     form.resetFields()
     setEditingRecord(null)
+    setSelectedType('')
+    setSelectedGroup('')
+    setIsControlAccount(false)
+    setShowBankReco(false)
+    // Set defaults
+    form.setFieldsValue({
+      currency: 'INR'
+    })
+  }
+  
+  const handleTypeChange = (type) => {
+    setSelectedType(type)
+    form.setFieldValue('group', undefined)
+    form.setFieldValue('subgroup', undefined)
+    setSelectedGroup('')
+    
+    // Auto-set balance type based on type
+    if (type === 'Asset' || type === 'Expense') {
+      form.setFieldValue('balanceType', 'Dr')
+    } else if (type === 'Liability' || type === 'Income') {
+      form.setFieldValue('balanceType', 'Cr')
+    }
+  }
+  
+  const handleGroupChange = (group) => {
+    setSelectedGroup(group)
+    form.setFieldValue('subgroup', undefined)
+    
+    // Show bank reconciliation toggle for Bank Accounts
+    setShowBankReco(group === 'Bank Accounts')
+    
+    // Auto-set balance type based on group
+    if (group.includes('Assets') || group.includes('Expenses')) {
+      form.setFieldValue('balanceType', 'Dr')
+    } else {
+      form.setFieldValue('balanceType', 'Cr')
+    }
+  }
+  
+  const handleControlAccountChange = (checked) => {
+    setIsControlAccount(checked)
+    if (checked) {
+      form.setFieldValue('subgroup', undefined)
+    }
   }
 
   const handleEdit = (record) => {
@@ -173,8 +281,15 @@ const LedgerMaster = () => {
         open={isModalVisible}
         onCancel={() => {
           setIsModalVisible(false)
-          form.resetFields()
-          setEditingRecord(null)
+          handleCancel()
+        }}
+        afterOpenChange={(open) => {
+          if (open && !editingRecord) {
+            // Set defaults for new record
+            form.setFieldsValue({
+              currency: 'INR'
+            })
+          }
         }}
         footer={null}
         width={800}
@@ -195,7 +310,7 @@ const LedgerMaster = () => {
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="type" label="Type" rules={[{ required: true }]}>
-                <Select placeholder="Select Type">
+                <Select placeholder="Select Type" onChange={handleTypeChange}>
                   <Select.Option value="Asset">Asset</Select.Option>
                   <Select.Option value="Liability">Liability</Select.Option>
                   <Select.Option value="Income">Income</Select.Option>
@@ -205,32 +320,59 @@ const LedgerMaster = () => {
             </Col>
             <Col span={8}>
               <Form.Item name="group" label="Group" rules={[{ required: true }]}>
-                <Select placeholder="Select Group">
-                  <Select.Option value="Current Assets">Current Assets</Select.Option>
-                  <Select.Option value="Fixed Assets">Fixed Assets</Select.Option>
-                  <Select.Option value="Current Liabilities">Current Liabilities</Select.Option>
-                  <Select.Option value="Long Term Liabilities">Long Term Liabilities</Select.Option>
-                  <Select.Option value="Direct Income">Direct Income</Select.Option>
-                  <Select.Option value="Indirect Income">Indirect Income</Select.Option>
-                  <Select.Option value="Direct Expenses">Direct Expenses</Select.Option>
-                  <Select.Option value="Indirect Expenses">Indirect Expenses</Select.Option>
+                <Select 
+                  placeholder="Select Group" 
+                  onChange={handleGroupChange}
+                  disabled={!selectedType}
+                >
+                  {selectedType && accountGroups[selectedType]?.map(group => (
+                    <Select.Option key={group} value={group}>{group}</Select.Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item name="subgroup" label="Subgroup">
-                <Input placeholder="e.g., Cash & Bank" />
+                <Select 
+                  placeholder="Select Subgroup" 
+                  disabled={isControlAccount || !selectedGroup}
+                  allowClear
+                >
+                  {selectedGroup && subGroups[selectedGroup]?.map(subgroup => (
+                    <Select.Option key={subgroup} value={subgroup}>{subgroup}</Select.Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="openingBalance" label="Opening Balance">
-                <InputNumber min={0} style={{ width: '100%' }} />
+              <Form.Item 
+                name="openingBalance" 
+                label="Opening Balance"
+                rules={[
+                  { type: 'number', message: 'Please enter a valid number' }
+                ]}
+              >
+                <InputNumber 
+                  min={0} 
+                  style={{ width: '100%' }} 
+                  placeholder="0.00"
+                  precision={2}
+                />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="balanceType" label="Balance Type" rules={[{ required: true }]}>
+              <Form.Item 
+                name="balanceType" 
+                label="Balance Type" 
+                rules={[
+                  {
+                    required: () => form.getFieldValue('openingBalance') > 0,
+                    message: 'Balance Type is required when Opening Balance is entered'
+                  }
+                ]}
+              >
                 <Select placeholder="Dr/Cr">
                   <Select.Option value="Dr">Debit (Dr)</Select.Option>
                   <Select.Option value="Cr">Credit (Cr)</Select.Option>
@@ -238,8 +380,8 @@ const LedgerMaster = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="isControl" label="Is Control Account?" valuePropName="checked">
-                <Switch />
+              <Form.Item name="isControl" label="Control Account?" valuePropName="checked">
+                <Switch onChange={handleControlAccountChange} />
               </Form.Item>
             </Col>
           </Row>
@@ -253,14 +395,16 @@ const LedgerMaster = () => {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item name="bankReco" label="Bank Reconciliation" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="currency" label="Currency">
-                <Select defaultValue="INR">
+            {showBankReco && (
+              <Col span={8}>
+                <Form.Item name="bankReco" label="Bank Reconciliation" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+            )}
+            <Col span={showBankReco ? 8 : 16}>
+              <Form.Item name="currency" label="Currency" initialValue="INR">
+                <Select>
                   <Select.Option value="INR">INR</Select.Option>
                   <Select.Option value="USD">USD</Select.Option>
                   <Select.Option value="EUR">EUR</Select.Option>
@@ -287,8 +431,7 @@ const LedgerMaster = () => {
               </Button>
               <Button onClick={() => {
                 setIsModalVisible(false)
-                form.resetFields()
-                setEditingRecord(null)
+                handleCancel()
               }}>
                 Cancel
               </Button>

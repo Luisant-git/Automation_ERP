@@ -215,7 +215,7 @@ const CustomerMaster = () => {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={6}>
+            <Col span={4}>
               <Form.Item name={['billingAddress', 'state']} label="State" rules={[{ required: true, message: 'Select state' }]}>
                 <Select
                   showSearch
@@ -233,19 +233,29 @@ const CustomerMaster = () => {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col span={4}>
               <Form.Item name={['billingAddress', 'stateCode']} label="State Code">
                 <Input disabled />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col span={4}>
               <Form.Item name={['billingAddress', 'city']} label="City" rules={[{ required: true, message: 'Enter city' }]}>
                 <Input />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col span={4}>
               <Form.Item name={['billingAddress', 'country']} label="Country" rules={[{ required: true, message: 'Enter country' }]}>
                 <Input />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item name={['billingAddress', 'pincode']} label="Pincode" rules={[{ required: true, message: 'Enter pincode' }]}>
+                <Input placeholder="e.g., 400001" />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item name={['billingAddress', 'contact']} label="Contact">
+                <Input placeholder="Phone/Mobile" />
               </Form.Item>
             </Col>
           </Row>
@@ -268,8 +278,8 @@ const CustomerMaster = () => {
                         </Form.Item>
                       </Col>
                     </Row>
-                    <Row gutter={16} align="bottom">
-                      <Col span={5}>
+                    <Row gutter={16}>
+                      <Col span={4}>
                         <Form.Item
                           {...restField}
                           name={[name, 'state']}
@@ -301,7 +311,7 @@ const CustomerMaster = () => {
                           <Input disabled />
                         </Form.Item>
                       </Col>
-                      <Col span={5}>
+                      <Col span={4}>
                         <Form.Item
                           {...restField}
                           name={[name, 'city']}
@@ -311,7 +321,7 @@ const CustomerMaster = () => {
                           <Input />
                         </Form.Item>
                       </Col>
-                      <Col span={5}>
+                      <Col span={4}>
                         <Form.Item
                           {...restField}
                           name={[name, 'country']}
@@ -321,15 +331,37 @@ const CustomerMaster = () => {
                           <Input />
                         </Form.Item>
                       </Col>
-                      <Col span={5} style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
+                      <Col span={4}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, 'pincode']}
+                          label="Pincode"
+                          rules={[{ required: true, message: 'Enter pincode' }]}
+                        >
+                          <Input placeholder="e.g., 400001" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={4}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, 'contact']}
+                          label="Contact"
+                        >
+                          <Input placeholder="Phone" />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Row gutter={16}>
+                      <Col span={24} style={{ textAlign: 'right' }}>
                         {fields.length > 1 && (
                           <Button
                             type="text"
                             danger
                             icon={<MinusCircleOutlined />}
                             onClick={() => remove(name)}
-                            style={{ marginBottom: '24px' }}
-                          />
+                          >
+                            Remove Address
+                          </Button>
                         )}
                       </Col>
                     </Row>

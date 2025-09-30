@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select } from 'antd'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, Switch, Tag } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, MinusCircleOutlined } from '@ant-design/icons'
 
 const SupplierMaster = () => {
@@ -49,6 +49,7 @@ const SupplierMaster = () => {
       emailId: 'anil.gupta@bhel.in',
       phoneNo: '+91-11-26156000',
       gstNumber: '07AAACB2355A1ZH',
+      isActive: true,
       addresses: [
         { address: 'BHEL House, Siri Fort, New Delhi 110049', state: 'Delhi', stateCode: '07', city: 'New Delhi', country: 'India' }
       ]
@@ -62,6 +63,7 @@ const SupplierMaster = () => {
       emailId: 'sunita.rao@siemens.com',
       phoneNo: '+91-22-39677000',
       gstNumber: '27AAACS3988E1ZA',
+      isActive: true,
       addresses: [
         { address: '130 Pandurang Budhkar Marg, Worli, Mumbai 400018', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' }
       ]
@@ -75,6 +77,7 @@ const SupplierMaster = () => {
       emailId: 'ramesh.chandra@in.abb.com',
       phoneNo: '+91-80-22949000',
       gstNumber: '29AAACA0318E1ZY',
+      isActive: false,
       addresses: [
         { address: 'Disha - 3rd Floor, Plot No. 5 & 6, 2nd Stage, Peenya Industrial Area, Bangalore 560058', state: 'Karnataka', stateCode: '29', city: 'Bangalore', country: 'India' }
       ]
@@ -88,6 +91,17 @@ const SupplierMaster = () => {
     { title: 'Phone', dataIndex: 'phoneNo', key: 'phoneNo' },
     { title: 'Email', dataIndex: 'emailId', key: 'emailId' },
     { title: 'GST Number', dataIndex: 'gstNumber', key: 'gstNumber' },
+    { 
+      title: 'Status', 
+      dataIndex: 'isActive', 
+      key: 'isActive', 
+      width: 100,
+      render: (isActive) => (
+        <Tag color={isActive ? 'green' : 'red'}>
+          {isActive ? 'Active' : 'Inactive'}
+        </Tag>
+      )
+    },
     // {
     //   title: 'Addresses',
     //   key: 'addresses',
@@ -202,6 +216,11 @@ const SupplierMaster = () => {
                 <Input />
               </Form.Item>
             </Col>
+            <Col span={12}>
+              <Form.Item name="isActive" label="Status" valuePropName="checked" initialValue={true}>
+                <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+              </Form.Item>
+            </Col>
           </Row>
           <Form.List name="addresses" initialValue={[{}]}>
             {(fields, { add, remove }) => (
@@ -220,8 +239,8 @@ const SupplierMaster = () => {
                         </Form.Item>
                       </Col>
                     </Row>
-                    <Row gutter={16} align="bottom">
-                      <Col span={5}>
+                    <Row gutter={16}>
+                      <Col span={4}>
                         <Form.Item
                           {...restField}
                           name={[name, 'state']}
@@ -257,7 +276,7 @@ const SupplierMaster = () => {
                           <Input disabled />
                         </Form.Item>
                       </Col>
-                      <Col span={5}>
+                      <Col span={4}>
                         <Form.Item
                           {...restField}
                           name={[name, 'city']}
@@ -267,7 +286,7 @@ const SupplierMaster = () => {
                           <Input />
                         </Form.Item>
                       </Col>
-                      <Col span={5}>
+                      <Col span={4}>
                         <Form.Item
                           {...restField}
                           name={[name, 'country']}
@@ -277,15 +296,37 @@ const SupplierMaster = () => {
                           <Input />
                         </Form.Item>
                       </Col>
-                      <Col span={5} style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
+                      <Col span={4}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, 'pincode']}
+                          label="Pincode"
+                          rules={[{ required: true, message: 'Enter pincode' }]}
+                        >
+                          <Input placeholder="e.g., 400001" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={4}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, 'contact']}
+                          label="Contact"
+                        >
+                          <Input placeholder="Phone" />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Row gutter={16}>
+                      <Col span={24} style={{ textAlign: 'right' }}>
                         {fields.length > 1 && (
                           <Button
                             type="text"
                             danger
                             icon={<MinusCircleOutlined />}
                             onClick={() => remove(name)}
-                            style={{ marginBottom: '24px' }}
-                          />
+                          >
+                            Remove Address
+                          </Button>
                         )}
                       </Col>
                     </Row>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select } from 'antd'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, Switch, Tag, DatePicker } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import dayjs from 'dayjs'
 
 const EmployeeMaster = () => {
   const [form] = Form.useForm()
@@ -14,7 +15,9 @@ const EmployeeMaster = () => {
       emailId: 'arjun.mehta@company.com',
       role: 'manager',
       username: 'arjun.mehta',
-      password: '********'
+      password: '********',
+      dateOfJoin: '2023-01-15',
+      isActive: true
     },
     {
       key: 2,
@@ -23,7 +26,9 @@ const EmployeeMaster = () => {
       emailId: 'kavita.sharma@company.com',
       role: 'engineer',
       username: 'kavita.sharma',
-      password: '********'
+      password: '********',
+      dateOfJoin: '2023-03-20',
+      isActive: true
     },
     {
       key: 3,
@@ -32,7 +37,9 @@ const EmployeeMaster = () => {
       emailId: 'rohit.patel@company.com',
       role: 'technician',
       username: 'rohit.patel',
-      password: '********'
+      password: '********',
+      dateOfJoin: '2023-05-10',
+      isActive: false
     },
     {
       key: 4,
@@ -41,7 +48,9 @@ const EmployeeMaster = () => {
       emailId: 'sneha.reddy@company.com',
       role: 'supervisor',
       username: 'sneha.reddy',
-      password: '********'
+      password: '********',
+      dateOfJoin: '2023-02-28',
+      isActive: true
     },
     {
       key: 5,
@@ -50,7 +59,9 @@ const EmployeeMaster = () => {
       emailId: 'manoj.kumar@company.com',
       role: 'operator',
       username: 'manoj.kumar',
-      password: '********'
+      password: '********',
+      dateOfJoin: '2023-04-05',
+      isActive: true
     },
     {
       key: 6,
@@ -59,7 +70,9 @@ const EmployeeMaster = () => {
       emailId: 'admin@company.com',
       role: 'admin',
       username: 'admin',
-      password: '********'
+      password: '********',
+      dateOfJoin: '2022-12-01',
+      isActive: true
     }
   ])
 
@@ -69,6 +82,23 @@ const EmployeeMaster = () => {
     { title: 'Email ID', dataIndex: 'emailId', key: 'emailId' },
     { title: 'Role', dataIndex: 'role', key: 'role' },
     { title: 'Username', dataIndex: 'username', key: 'username' },
+    { 
+      title: 'Date of Join', 
+      dataIndex: 'dateOfJoin', 
+      key: 'dateOfJoin',
+      render: (date) => date ? new Date(date).toLocaleDateString() : 'N/A'
+    },
+    { 
+      title: 'Status', 
+      dataIndex: 'isActive', 
+      key: 'isActive', 
+      width: 100,
+      render: (isActive) => (
+        <Tag color={isActive ? 'green' : 'red'}>
+          {isActive ? 'Active' : 'Inactive'}
+        </Tag>
+      )
+    },
     {
       title: 'Actions',
       key: 'actions',
@@ -82,11 +112,16 @@ const EmployeeMaster = () => {
   ]
 
   const handleSubmit = (values) => {
+    const formattedValues = {
+      ...values,
+      dateOfJoin: values.dateOfJoin ? values.dateOfJoin.format('YYYY-MM-DD') : null
+    }
+    
     if (editingRecord) {
-      setEmployees(employees.map(e => e.key === editingRecord.key ? { ...values, key: editingRecord.key } : e))
+      setEmployees(employees.map(e => e.key === editingRecord.key ? { ...formattedValues, key: editingRecord.key } : e))
       message.success('Employee updated successfully')
     } else {
-      setEmployees([...employees, { ...values, key: Date.now() }])
+      setEmployees([...employees, { ...formattedValues, key: Date.now() }])
       message.success('Employee added successfully')
     }
     setIsModalVisible(false)
@@ -96,7 +131,10 @@ const EmployeeMaster = () => {
 
   const handleEdit = (record) => {
     setEditingRecord(record)
-    form.setFieldsValue(record)
+    form.setFieldsValue({
+      ...record,
+      dateOfJoin: record.dateOfJoin ? dayjs(record.dateOfJoin) : null
+    })
     setIsModalVisible(true)
   }
 
@@ -161,15 +199,23 @@ const EmployeeMaster = () => {
               <Select.Option value="engineer">Engineer</Select.Option>
             </Select>
           </Form.Item>
+          <Form.Item name="dateOfJoin" label="Date of Join" rules={[{ required: true }]}>
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={10}>
               <Form.Item name="username" label="Username" rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={10}>
               <Form.Item name="password" label="Password" rules={[{ required: true, min: 6 }]}>
                 <Input.Password />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item name="isActive" label="Status" valuePropName="checked" initialValue={true}>
+                <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
               </Form.Item>
             </Col>
           </Row>
