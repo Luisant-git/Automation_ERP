@@ -12,64 +12,29 @@ import {
   DatePicker,
   Typography,
   Space,
-  Divider,
-  message
+  message,
+  Modal
 } from 'antd'
-import { PlusOutlined, DeleteOutlined, PrinterOutlined, SaveOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, PrinterOutlined, EditOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import styles from './PurchaseOrder.module.css'
 
 const { TextArea } = Input
-const { Title, Text } = Typography
+const { Title } = Typography
 const { Option } = Select
 
-const PurchaseOrderForm = ({ onOrderSaved }) => {
+const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
   const [form] = Form.useForm()
   const [items, setItems] = useState([])
+  const [isItemModalVisible, setIsItemModalVisible] = useState(false)
+  const [editingItem, setEditingItem] = useState(null)
+  const [itemForm] = Form.useForm()
   const [totals, setTotals] = useState({
-    subtotal: 0,
-    packingCharges: 0,
-    freightCharges: 0,
-    taxableAmount: 0,
-    sgst: 0,
-    cgst: 0,
-    igst: 0,
-    grandTotal: 0,
-    roundedOffTotal: 0
+    totalQuantity: 0,
+    totalAmount: 0,
+    totalTaxAmount: 0,
+    totalDiscountAmount: 0,
+    grossAmount: 0
   })
-  
-  const states = [
-    { code: '28', name: 'Andhra Pradesh' },
-    { code: '12', name: 'Arunachal Pradesh' },
-    { code: '18', name: 'Assam' },
-    { code: '10', name: 'Bihar' },
-    { code: '22', name: 'Chhattisgarh' },
-    { code: '07', name: 'Delhi' },
-    { code: '30', name: 'Goa' },
-    { code: '24', name: 'Gujarat' },
-    { code: '06', name: 'Haryana' },
-    { code: '02', name: 'Himachal Pradesh' },
-    { code: '01', name: 'Jammu and Kashmir' },
-    { code: '20', name: 'Jharkhand' },
-    { code: '29', name: 'Karnataka' },
-    { code: '32', name: 'Kerala' },
-    { code: '23', name: 'Madhya Pradesh' },
-    { code: '27', name: 'Maharashtra' },
-    { code: '14', name: 'Manipur' },
-    { code: '17', name: 'Meghalaya' },
-    { code: '15', name: 'Mizoram' },
-    { code: '13', name: 'Nagaland' },
-    { code: '21', name: 'Odisha' },
-    { code: '03', name: 'Punjab' },
-    { code: '08', name: 'Rajasthan' },
-    { code: '11', name: 'Sikkim' },
-    { code: '33', name: 'Tamil Nadu' },
-    { code: '36', name: 'Telangana' },
-    { code: '16', name: 'Tripura' },
-    { code: '09', name: 'Uttar Pradesh' },
-    { code: '05', name: 'Uttarakhand' },
-    { code: '19', name: 'West Bengal' }
-  ]
   
   // Auto-generate PO Number
   const generatePONumber = () => {
@@ -80,281 +45,192 @@ const PurchaseOrderForm = ({ onOrderSaved }) => {
     return `PO${year}${month}${random}`
   }
   
-  // Initialize form with auto-filled data
+  // Initialize form with data
   useEffect(() => {
-    form.setFieldsValue({
-      poNumber: generatePONumber(),
-      date: dayjs(),
-      companyName: 'SMARTEDGE AUTOMATION',
-      companyAddress: '#389, 3rd Main Road, 2nd Stage, K.H.B Colony, Basaveshwaranagar, Bangalore - 560079',
-      gstin: '29ABHFS7657M1Z7',
-      pan: 'ABHFS7657M',
-      contactPerson: 'GAIKWAD',
-      contactNumber: '080 23285927'
-    })
-  }, [])
-
-  // Add new item row
-  const addItem = () => {
-    const newItem = {
-      key: Date.now(),
-      no: items.length + 1,
-      description: '',
-      type: 'Material',
-      hsnSac: '',
-      make: '',
-      qty: 1,
-      unit: 'Nos',
-      ratePerUnit: 0,
-      amount: 0,
-      discount: 0,
-      total: 0
+    if (editingOrder) {
+      form.setFieldsValue({
+        ...editingOrder,
+        poDate: editingOrder.poDate ? dayjs(editingOrder.poDate) : dayjs(),
+        deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null,
+        referenceDate: editingOrder.referenceDate ? dayjs(editingOrder.referenceDate) : null
+      })
+      setItems(editingOrder.items || [])
+    } else {
+      form.setFieldsValue({
+        poNumber: generatePONumber(),
+        poDate: dayjs(),
+        poStatus: 1, // Draft
+        currencyId: 1, // INR
+        exchangeRate: 1
+      })
     }
-    setItems([...items, newItem])
+  }, [editingOrder])
+
+  // Add/Edit item functions
+  const handleAddItem = () => {
+    setEditingItem(null)
+    itemForm.resetFields()
+    setIsItemModalVisible(true)
+  }
+
+  const handleEditItem = (item) => {
+    setEditingItem(item)
+    itemForm.setFieldsValue(item)
+    setIsItemModalVisible(true)
+  }
+
+  const handleItemSubmit = (values) => {
+    const taxableAmount = (values.quantity * values.rate) - (values.discountAmount || 0)
+    const cgstAmount = taxableAmount * (values.cgstPercentage || 0) / 100
+    const sgstAmount = taxableAmount * (values.sgstPercentage || 0) / 100
+    const igstAmount = taxableAmount * (values.igstPercentage || 0) / 100
+    const totalAmount = taxableAmount + cgstAmount + sgstAmount + igstAmount
+
+    const newItem = {
+      ...values,
+      key: editingItem ? editingItem.key : Date.now(),
+      taxableAmount,
+      cgstAmount,
+      sgstAmount,
+      igstAmount,
+      totalAmount
+    }
+
+    if (editingItem) {
+      setItems(items.map(item => item.key === editingItem.key ? newItem : item))
+    } else {
+      setItems([...items, newItem])
+    }
+
+    setIsItemModalVisible(false)
+    itemForm.resetFields()
+    setEditingItem(null)
   }
 
   // Remove item
   const removeItem = (key) => {
-    const newItems = items.filter(item => item.key !== key)
-    setItems(newItems)
+    setItems(items.filter(item => item.key !== key))
   }
 
-  // Update item
-  const updateItem = (key, field, value) => {
-    const newItems = items.map(item => {
-      if (item.key === key) {
-        const updatedItem = { ...item, [field]: value }
-        
-        // Calculate amount and total
-        if (field === 'qty' || field === 'ratePerUnit') {
-          updatedItem.amount = updatedItem.qty * updatedItem.ratePerUnit
-          updatedItem.total = updatedItem.amount - (updatedItem.amount * updatedItem.discount / 100)
-        }
-        
-        if (field === 'discount') {
-          updatedItem.total = updatedItem.amount - (updatedItem.amount * value / 100)
-        }
-        
-        return updatedItem
-      }
-      return item
-    })
-    setItems(newItems)
-  }
-
-  // Calculate totals with auto tax application
+  // Calculate totals
   useEffect(() => {
-    const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0)
-    const packingCharges = form.getFieldValue('packingCharges') || 0
-    const freightCharges = form.getFieldValue('freightCharges') || 0
-    const taxableAmount = subtotal + packingCharges + freightCharges
-    
-    // Auto-apply GST based on supplier location (simplified logic)
-    const supplierGSTIN = form.getFieldValue('supplierGSTIN')
-    const isInterState = supplierGSTIN && !supplierGSTIN.startsWith('29') // Karnataka GSTIN starts with 29
-    
-    const sgst = isInterState ? 0 : taxableAmount * 0.09
-    const cgst = isInterState ? 0 : taxableAmount * 0.09
-    const igst = isInterState ? taxableAmount * 0.18 : 0
-    
-    const grandTotal = taxableAmount + sgst + cgst + igst
-    const roundedOffTotal = Math.round(grandTotal)
+    const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0)
+    const totalAmount = items.reduce((sum, item) => sum + (item.taxableAmount || 0), 0)
+    const totalTaxAmount = items.reduce((sum, item) => sum + (item.cgstAmount || 0) + (item.sgstAmount || 0) + (item.igstAmount || 0), 0)
+    const totalDiscountAmount = items.reduce((sum, item) => sum + (item.discountAmount || 0), 0)
+    const grossAmount = totalAmount + totalTaxAmount
 
     setTotals({
-      subtotal,
-      packingCharges,
-      freightCharges,
-      taxableAmount,
-      sgst,
-      cgst,
-      igst,
-      grandTotal,
-      roundedOffTotal
+      totalQuantity,
+      totalAmount,
+      totalTaxAmount,
+      totalDiscountAmount,
+      grossAmount
     })
-  }, [items, form])
+  }, [items])
 
-  // Convert number to words
-  const numberToWords = (num) => {
-    if (num === 0) return 'Zero Rupees Only'
-    
-    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
-    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
-    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
-    
-    const convertHundreds = (n) => {
-      let result = ''
-      if (n >= 100) {
-        result += ones[Math.floor(n / 100)] + ' Hundred '
-        n %= 100
-      }
-      if (n >= 20) {
-        result += tens[Math.floor(n / 10)] + ' '
-        n %= 10
-      } else if (n >= 10) {
-        result += teens[n - 10] + ' '
-        return result
-      }
-      if (n > 0) {
-        result += ones[n] + ' '
-      }
-      return result
-    }
-    
-    const crores = Math.floor(num / 10000000)
-    const lakhs = Math.floor((num % 10000000) / 100000)
-    const thousands = Math.floor((num % 100000) / 1000)
-    const hundreds = num % 1000
-    
-    let result = ''
-    if (crores > 0) result += convertHundreds(crores) + 'Crore '
-    if (lakhs > 0) result += convertHundreds(lakhs) + 'Lakh '
-    if (thousands > 0) result += convertHundreds(thousands) + 'Thousand '
-    if (hundreds > 0) result += convertHundreds(hundreds)
-    
-    return result.trim() + ' Rupees Only'
-  }
+  // Status options
+  const statusOptions = [
+    { value: 1, label: 'Draft' },
+    { value: 2, label: 'Submitted' },
+    { value: 3, label: 'Approved' },
+    { value: 4, label: 'Rejected' },
+    { value: 5, label: 'Cancelled' }
+  ]
 
-  // Table columns
+  const paymentTermsOptions = [
+    { value: 1, label: 'Net 30' },
+    { value: 2, label: 'Net 15' },
+    { value: 3, label: 'Immediate' },
+    { value: 4, label: 'COD' }
+  ]
+
+  const deliveryTermsOptions = [
+    { value: 1, label: 'FOB' },
+    { value: 2, label: 'CIF' },
+    { value: 3, label: 'Ex-Works' },
+    { value: 4, label: 'DDP' }
+  ]
+
+  // Table columns for Purchase Order Details
   const columns = [
     {
-      title: 'No',
-      dataIndex: 'no',
-      width: 50,
+      title: 'S.No',
+      width: 60,
       render: (_, __, index) => index + 1
     },
     {
-      title: 'DESCRIPTION',
+      title: 'Description',
       dataIndex: 'description',
-      width: 200,
-      render: (text, record) => (
-        <Input
-          value={text}
-          onChange={(e) => updateItem(record.key, 'description', e.target.value)}
-          placeholder="Item description"
-        />
-      )
+      width: 200
     },
     {
-      title: 'Type',
-      dataIndex: 'type',
-      width: 100,
-      render: (text, record) => (
-        <Select
-          value={text}
-          onChange={(value) => updateItem(record.key, 'type', value)}
-          style={{ width: '100%' }}
-        >
-          <Option value="Material">Material</Option>
-          <Option value="Service">Service</Option>
-        </Select>
-      )
-    },
-    {
-      title: 'HSN/SAC Code',
-      dataIndex: 'hsnSac',
-      width: 100,
-      render: (text, record) => (
-        <Input
-          value={text}
-          onChange={(e) => updateItem(record.key, 'hsnSac', e.target.value)}
-          placeholder="HSN/SAC"
-        />
-      )
-    },
-    {
-      title: 'Make/Brand',
-      dataIndex: 'make',
-      width: 100,
-      render: (text, record) => (
-        <Input
-          value={text}
-          onChange={(e) => updateItem(record.key, 'make', e.target.value)}
-          placeholder="Make/Brand"
-        />
-      )
+      title: 'HSN Code',
+      dataIndex: 'hsnCode',
+      width: 100
     },
     {
       title: 'Quantity',
-      dataIndex: 'qty',
+      dataIndex: 'quantity',
       width: 80,
-      render: (text, record) => (
-        <InputNumber
-          value={text}
-          onChange={(value) => updateItem(record.key, 'qty', value || 0)}
-          min={0}
-          style={{ width: '100%' }}
-        />
-      )
+      render: (text) => text?.toFixed(3)
     },
     {
       title: 'Unit',
       dataIndex: 'unit',
-      width: 80,
-      render: (text, record) => (
-        <Select
-          value={text}
-          onChange={(value) => updateItem(record.key, 'unit', value)}
-          placeholder="Unit"
-          style={{ width: '100%' }}
-        >
-          <Option value="Nos">Nos</Option>
-          <Option value="Kg">Kg</Option>
-          <Option value="Mtr">Mtr</Option>
-          <Option value="Ltr">Ltr</Option>
-          <Option value="Set">Set</Option>
-        </Select>
-      )
+      width: 80
     },
     {
-      title: 'Rate per Unit (INR)',
-      dataIndex: 'ratePerUnit',
+      title: 'Rate',
+      dataIndex: 'rate',
+      width: 100,
+      render: (text) => `₹${text?.toFixed(2)}`
+    },
+    {
+      title: 'Discount',
+      dataIndex: 'discountAmount',
+      width: 100,
+      render: (text) => `₹${text?.toFixed(2)}`
+    },
+    {
+      title: 'Taxable Amount',
+      dataIndex: 'taxableAmount',
       width: 120,
-      render: (text, record) => (
-        <InputNumber
-          value={text}
-          onChange={(value) => updateItem(record.key, 'ratePerUnit', value || 0)}
-          min={0}
-          precision={2}
-          style={{ width: '100%' }}
-        />
-      )
+      render: (text) => `₹${text?.toFixed(2)}`
     },
     {
-      title: 'Amount (INR)',
-      dataIndex: 'amount',
+      title: 'GST',
       width: 120,
-      render: (text) => `₹${(text || 0).toFixed(2)}`
+      render: (_, record) => {
+        const gst = (record.cgstAmount || 0) + (record.sgstAmount || 0) + (record.igstAmount || 0)
+        return `₹${gst.toFixed(2)}`
+      }
     },
     {
-      title: 'Discount %',
-      dataIndex: 'discount',
-      width: 80,
-      render: (text, record) => (
-        <InputNumber
-          value={text}
-          onChange={(value) => updateItem(record.key, 'discount', value || 0)}
-          min={0}
-          max={100}
-          style={{ width: '100%' }}
-        />
-      )
-    },
-    {
-      title: 'Total (Rs.)',
-      dataIndex: 'total',
+      title: 'Total Amount',
+      dataIndex: 'totalAmount',
       width: 120,
-      render: (text) => `₹${(text || 0).toFixed(2)}`
+      render: (text) => `₹${text?.toFixed(2)}`
     },
     {
-      title: 'Action',
-      width: 80,
+      title: 'Actions',
+      width: 100,
       render: (_, record) => (
-        <Button
-          type="text"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => removeItem(record.key)}
-        />
+        <Space>
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            onClick={() => handleEditItem(record)}
+            size="small"
+          />
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => removeItem(record.key)}
+            size="small"
+          />
+        </Space>
       )
     }
   ]
@@ -364,16 +240,32 @@ const PurchaseOrderForm = ({ onOrderSaved }) => {
       const orderData = {
         ...values,
         items,
-        totals,
-        createdAt: new Date().toISOString()
+        ...totals,
+        poDate: values.poDate?.format('YYYY-MM-DD'),
+        deliveryDate: values.deliveryDate?.format('YYYY-MM-DD'),
+        referenceDate: values.referenceDate?.format('YYYY-MM-DD'),
+        createdDate: new Date().toISOString(),
+        createdBy: 1, // Current user ID
+        companyId: 1,
+        financialYearId: 1,
+        isActive: true
       }
       
       const existingOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-      const newOrder = { id: Date.now(), ...orderData }
-      existingOrders.push(newOrder)
-      localStorage.setItem('purchaseOrders', JSON.stringify(existingOrders))
       
-      message.success('Purchase Order saved successfully!')
+      if (editingOrder) {
+        const updatedOrders = existingOrders.map(order => 
+          order.id === editingOrder.id ? { ...orderData, id: editingOrder.id } : order
+        )
+        localStorage.setItem('purchaseOrders', JSON.stringify(updatedOrders))
+        message.success('Purchase Order updated successfully!')
+      } else {
+        const newOrder = { id: Date.now(), ...orderData }
+        existingOrders.push(newOrder)
+        localStorage.setItem('purchaseOrders', JSON.stringify(existingOrders))
+        message.success('Purchase Order saved successfully!')
+      }
+      
       onOrderSaved && onOrderSaved()
     } catch (error) {
       message.error('Failed to save Purchase Order')
@@ -381,289 +273,271 @@ const PurchaseOrderForm = ({ onOrderSaved }) => {
   }
 
   const handlePrint = () => {
-    const printContent = document.querySelector('.print-only-content')
-    const originalContent = document.body.innerHTML
-    
-    document.body.innerHTML = printContent.innerHTML
     window.print()
-    document.body.innerHTML = originalContent
-    window.location.reload()
   }
 
   return (
     <div>
-      <Card className="print-only-content">
-        {/* Header */}
-        <div className={`${styles.companyHeader} print-header`}>
-          {/* <Title level={2} className={styles.companyTitle}>SMARTEDGE AUTOMATION</Title>
-          <Text className={styles.companySubtitle}>Industrial Automation and CNC Services</Text>
-          <br /> */}
-          <Title level={4} style={{ fontWeight: 'bold', margin: '1px 0', color: '#333' }}>PURCHASE ORDER</Title>
-        </div>
-      <br></br>
+      <Card>
+        <Title level={4} style={{ fontWeight: 'bold', margin: '1px 0', color: '#333' }}>
+          {editingOrder ? 'Edit Purchase Order' : 'Create Purchase Order'}
+        </Title>
+        
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          {/* 1. Header Information */}
-          <Row gutter={24}>
-            {/* <Col span={12}>
-              <Card size="small" title="Company Name & Logo (Auto-filled from ERP)">
-                <Form.Item name="companyName" label="Company Name">
+          {/* Purchase Order Header */}
+          <Card title="Purchase Order Details" size="small" style={{ marginBottom: 16 }}>
+            <Row gutter={16}>
+              <Col span={6}>
+                <Form.Item name="poNumber" label="PO Number" rules={[{ required: true }]}>
                   <Input disabled />
                 </Form.Item>
-                <Form.Item name="companyAddress" label="Address">
-                  <TextArea rows={3} disabled />
+              </Col>
+              <Col span={6}>
+                <Form.Item name="poDate" label="PO Date" rules={[{ required: true }]}>
+                  <DatePicker style={{ width: '100%' }} />
                 </Form.Item>
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="gstin" label="GSTIN">
-                      <Input disabled />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="pan" label="PAN">
-                      <Input disabled />
-                    </Form.Item>
-                  </Col>
-                </Row>
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="contactPerson" label="Contact Person">
-                      <Input disabled />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="contactNumber" label="Contact Number">
-                      <Input disabled />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </Card>
-            </Col> */}
-            <Col span={24}>
-              <Card size="small" title="Purchase Order Details">
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="poNumber" label="PO Number (Auto-generated)" rules={[{ required: true }]}>
-                      <Input disabled />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="quotationNumber" label="Quotation Number">
-                      <Input placeholder="Enter quotation number" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="date" label="Date" rules={[{ required: true }]}>
-                      <DatePicker style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="referenceNo" label="Reference No. / Work Order No. (optional)">
-                      <Input placeholder="Reference/Work Order Number" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </Card>
-            </Col>
-          </Row>
-
-          {/* 2. Supplier Details */}
-          <Row gutter={24} style={{ marginTop: '16px' }}>
-            <Col span={24}>
-              <Card size="small" title="Supplier Details">
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="supplierName" label="Supplier Name" rules={[{ required: true }]}>
-                      <Input placeholder="Supplier name" />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="supplierGSTIN" label="GSTIN (if applicable)">
-                      <Input placeholder="Supplier GSTIN" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-                <Form.Item name="supplierAddress" label="Address" rules={[{ required: true }]}>
-                  <TextArea rows={3} placeholder="Complete supplier address" />
+              </Col>
+              <Col span={6}>
+                <Form.Item name="referenceNumber" label="Reference Number">
+                  <Input placeholder="Reference Number" />
                 </Form.Item>
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Form.Item name="supplierState" label="State">
-                      <Select
-                        showSearch
-                        placeholder="Select state"
-                        optionFilterProp="children"
-                        filterOption={(input, option) => (option?.children ?? '').toLowerCase().includes(input.toLowerCase())}
-                        onChange={(value) => {
-                          const selectedState = states.find(s => s.name === value)
-                          form.setFieldValue('supplierStateCode', selectedState?.code)
-                        }}
-                      >
-                        {states.map(state => (
-                          <Option key={state.code} value={state.name}>{state.name}</Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                  <Col span={4}>
-                    <Form.Item name="supplierStateCode" label="State Code">
-                      <Input disabled />
-                    </Form.Item>
-                  </Col>
-                  <Col span={6}>
-                    <Form.Item name="modeOfPayment" label="Mode of Payment">
-                      <Select placeholder="Select payment mode">
-                        <Option value="Cash">Cash</Option>
-                        <Option value="Credit">Credit</Option>
-                        <Option value="Cheque">Cheque</Option>
-                        <Option value="Bank Transfer">Bank Transfer</Option>
-                        <Option value="UPI">UPI</Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                  <Col span={6}>
-                    <Form.Item name="supplierContactPerson" label="Contact Person">
-                      <Input placeholder="Contact person name" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="supplierContactDetails" label="Contact Details">
-                      <Input placeholder="Phone/Email" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </Card>
-            </Col>
-          </Row>
-
-          {/* 3. Item / Order Details */}
-          <div style={{ marginTop: '24px' }}>
-            <Card size="small" title="Item / Order Details">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <Text strong>Order Items</Text>
-                <Button type="primary" icon={<PlusOutlined />} onClick={addItem}>
-                  Add Item
-                </Button>
-              </div>
-              
-              <Table
-                columns={columns}
-                dataSource={items}
-                pagination={false}
-                size="small"
-                bordered
-                scroll={{ x: 1400 }}
-                className="print-table"
-              />
-            </Card>
-          </div>
-
-          {/* 4. Tax & Charges Summary */}
-          <Row gutter={24} style={{ marginTop: '24px' }}>
-            <Col span={12}>
-              <Card size="small" title="Tax & Charges Summary">
-                <div className={`${styles.totalsSection} print-totals`}>
-                  <Row justify="space-between" className={styles.totalRow}>
-                    <Col><strong>Subtotal / Taxable Amount</strong></Col>
-                    <Col><strong>₹{totals.subtotal.toFixed(2)}</strong></Col>
-                  </Row>
-                  <Form.Item name="packingCharges" label="Packing Charges (if any)">
-                    <InputNumber 
-                      style={{ width: '100%' }} 
-                      placeholder="0.00" 
-                      onChange={() => form.submit()} 
-                    />
-                  </Form.Item>
-                  <Form.Item name="freightCharges" label="Freight Charges (if any)">
-                    <InputNumber 
-                      style={{ width: '100%' }} 
-                      placeholder="0.00" 
-                      onChange={() => form.submit()} 
-                    />
-                  </Form.Item>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <Row justify="space-between" className={styles.totalRow}>
-                    <Col>SGST (9%)</Col>
-                    <Col>₹{totals.sgst.toFixed(2)}</Col>
-                  </Row>
-                  <Row justify="space-between" className={styles.totalRow}>
-                    <Col>CGST (9%)</Col>
-                    <Col>₹{totals.cgst.toFixed(2)}</Col>
-                  </Row>
-                  <Row justify="space-between" className={styles.totalRow}>
-                    <Col>IGST (18%)</Col>
-                    <Col>₹{totals.igst.toFixed(2)}</Col>
-                  </Row>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <Row justify="space-between" className={styles.grandTotalRow}>
-                    <Col>Grand Total</Col>
-                    <Col>₹{totals.grandTotal.toFixed(2)}</Col>
-                  </Row>
-                  <Row justify="space-between" className={styles.totalRow}>
-                    <Col>Rounded Off Total</Col>
-                    <Col>₹{totals.roundedOffTotal.toFixed(2)}</Col>
-                  </Row>
-                  <div className={styles.rupeesInWords} style={{ marginTop: '12px' }}>
-                    <strong>Amount in Words:</strong><br />
-                    {numberToWords(totals.roundedOffTotal)}
-                  </div>
-                </div>
-              </Card>
-            </Col>
-            <Col span={12}>
-              <Card size="small" title="Terms & Payment Section">
+              </Col>
+              <Col span={6}>
+                <Form.Item name="referenceDate" label="Reference Date">
+                  <DatePicker style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={6}>
+                <Form.Item name="supplierId" label="Supplier" rules={[{ required: true }]}>
+                  <Select placeholder="Select Supplier">
+                    <Option value={1}>Supplier 1</Option>
+                    <Option value={2}>Supplier 2</Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item name="paymentTermsId" label="Payment Terms">
+                  <Select placeholder="Select Payment Terms">
+                    {paymentTermsOptions.map(term => (
+                      <Option key={term.value} value={term.value}>{term.label}</Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item name="deliveryTermsId" label="Delivery Terms">
+                  <Select placeholder="Select Delivery Terms">
+                    {deliveryTermsOptions.map(term => (
+                      <Option key={term.value} value={term.value}>{term.label}</Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item name="deliveryDate" label="Delivery Date">
+                  <DatePicker style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={8}>
+                <Form.Item name="deliveryAddress" label="Delivery Address">
+                  <TextArea rows={2} placeholder="Delivery Address" />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="billingAddress" label="Billing Address">
+                  <TextArea rows={2} placeholder="Billing Address" />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="shippingAddress" label="Shipping Address">
+                  <TextArea rows={2} placeholder="Shipping Address" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={12}>
                 <Form.Item name="termsConditions" label="Terms & Conditions">
-                  <TextArea rows={2} placeholder="Terms and conditions" />
+                  <TextArea rows={3} placeholder="Terms & Conditions" />
                 </Form.Item>
-                <Form.Item name="paymentTerms" label="Payment Terms">
-                  <TextArea rows={2} placeholder="Payment terms" />
+              </Col>
+              <Col span={6}>
+                <Form.Item name="exchangeRate" label="Exchange Rate" initialValue={1}>
+                  <InputNumber style={{ width: '100%' }} min={0} step={0.01} />
                 </Form.Item>
-                <Form.Item name="advance" label="Advance (if any)">
-                  <InputNumber style={{ width: '100%' }} placeholder="0.00" />
+              </Col>
+              <Col span={6}>
+                <Form.Item name="poStatus" label="Status" initialValue={1}>
+                  <Select>
+                    {statusOptions.map(status => (
+                      <Option key={status.value} value={status.value}>{status.label}</Option>
+                    ))}
+                  </Select>
                 </Form.Item>
-                <Form.Item name="chequeTransactionRef" label="Cheque/Transaction Ref. (optional)">
-                  <Input placeholder="Reference number" />
-                </Form.Item>
-                <Form.Item name="deliveryDetails" label="Delivery Details">
-                  <TextArea rows={2} placeholder="Delivery details" />
-                </Form.Item>
-                <Form.Item name="taxesApplicability" label="Taxes applicability" initialValue="System auto-applies based on GST rules">
-                  <Input disabled />
-                </Form.Item>
-                <Form.Item name="remarks" label="Remarks">
-                  <TextArea rows={2} placeholder="Additional remarks" />
-                </Form.Item>
-              </Card>
-            </Col>
-          </Row>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* Purchase Order Items */}
+          <Card title="Purchase Order Items" size="small" style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 16 }}>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleAddItem}>
+                Add Item
+              </Button>
+            </div>
+            <Table
+              columns={columns}
+              dataSource={items}
+              pagination={false}
+              size="small"
+              bordered
+              scroll={{ x: 1200 }}
+            />
+          </Card>
+
+          {/* Amount Summary */}
+          <Card title="Amount Summary" size="small" style={{ marginBottom: 16 }}>
+            <Row gutter={16}>
+              <Col span={6}>
+                <div><strong>Total Quantity:</strong> {totals.totalQuantity.toFixed(3)}</div>
+              </Col>
+              <Col span={6}>
+                <div><strong>Total Amount:</strong> ₹{totals.totalAmount.toFixed(2)}</div>
+              </Col>
+              <Col span={6}>
+                <div><strong>Total Tax:</strong> ₹{totals.totalTaxAmount.toFixed(2)}</div>
+              </Col>
+              <Col span={6}>
+                <div><strong>Gross Amount:</strong> ₹{totals.grossAmount.toFixed(2)}</div>
+              </Col>
+            </Row>
+          </Card>
+
+          <div style={{ textAlign: 'right', marginTop: 16 }}>
+            <Space>
+              <Button onClick={() => onOrderSaved && onOrderSaved()}>
+                Cancel
+              </Button>
+              <Button type="primary" htmlType="submit">
+                {editingOrder ? 'Update' : 'Save'} Purchase Order
+              </Button>
+              <Button icon={<PrinterOutlined />} onClick={handlePrint}>
+                Print
+              </Button>
+            </Space>
+          </div>
         </Form>
       </Card>
 
-      {/* Action Buttons */}
-      <div style={{ textAlign: 'center', marginTop: '16px', marginBottom: '80px' }} className="no-print">
-        <Space size="large">
-          <Button 
-            type="primary" 
-            icon={<SaveOutlined />} 
-            onClick={() => form.submit()} 
-            size="large"
-            style={{ minWidth: '150px' }}
-          >
-            Save Purchase Order
-          </Button>
-          <Button 
-            icon={<PrinterOutlined />} 
-            onClick={handlePrint} 
-            size="large"
-            style={{ minWidth: '120px' }}
-          >
-            Print
-          </Button>
-        </Space>
-      </div>
+      {/* Item Modal */}
+      <Modal
+        title={editingItem ? 'Edit Item' : 'Add Item'}
+        open={isItemModalVisible}
+        onCancel={() => {
+          setIsItemModalVisible(false)
+          setEditingItem(null)
+          itemForm.resetFields()
+        }}
+        footer={null}
+        width={800}
+      >
+        <Form form={itemForm} layout="vertical" onFinish={handleItemSubmit}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="itemId" label="Item" rules={[{ required: true }]}>
+                <Select placeholder="Select Item">
+                  <Option value={1}>Item 1</Option>
+                  <Option value={2}>Item 2</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="hsnCode" label="HSN Code">
+                <Input placeholder="HSN Code" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item name="description" label="Description">
+                <TextArea rows={2} placeholder="Item Description" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="quantity" label="Quantity" rules={[{ required: true }]}>
+                <InputNumber style={{ width: '100%' }} min={0} step={0.001} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="unitId" label="Unit" rules={[{ required: true }]}>
+                <Select placeholder="Select Unit">
+                  <Option value={1}>Nos</Option>
+                  <Option value={2}>Kg</Option>
+                  <Option value={3}>Mtr</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="rate" label="Rate" rules={[{ required: true }]}>
+                <InputNumber style={{ width: '100%' }} min={0} step={0.01} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="discountPercentage" label="Discount %">
+                <InputNumber style={{ width: '100%' }} min={0} max={100} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="discountAmount" label="Discount Amount">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="expectedDeliveryDate" label="Expected Delivery">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="cgstPercentage" label="CGST %">
+                <InputNumber style={{ width: '100%' }} min={0} max={50} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="sgstPercentage" label="SGST %">
+                <InputNumber style={{ width: '100%' }} min={0} max={50} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="igstPercentage" label="IGST %">
+                <InputNumber style={{ width: '100%' }} min={0} max={50} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <div style={{ textAlign: 'right' }}>
+            <Space>
+              <Button onClick={() => {
+                setIsItemModalVisible(false)
+                setEditingItem(null)
+                itemForm.resetFields()
+              }}>
+                Cancel
+              </Button>
+              <Button type="primary" htmlType="submit">
+                {editingItem ? 'Update' : 'Add'} Item
+              </Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
     </div>
   )
 }

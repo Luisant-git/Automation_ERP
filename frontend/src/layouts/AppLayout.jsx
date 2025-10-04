@@ -60,9 +60,10 @@ const menuItems = [
     icon: <ShoppingCartOutlined/>,
     label: 'Procurement',
     children: [
-      { key:'/procurement/purchase-orders', label:<NavLink to="/procurement/purchase-orders">Purchase Orders</NavLink> },
-      // { key:'/procurement/vendor-management', label:<NavLink to="/procurement/vendor-management">Vendor Management</NavLink> },
-      // { key:'/procurement/approvals', label:<NavLink to="/procurement/approvals">Approvals</NavLink> },
+      { key:'/procurement/purchase-order-master', label:<NavLink to="/procurement/purchase-order-master">Purchase Order Master</NavLink> },
+      { key:'/procurement/purchase-order-details', label:<NavLink to="/procurement/purchase-order-details">Purchase Order Details</NavLink> },
+      { key:'/procurement/purchase-return-master', label:<NavLink to="/procurement/purchase-return-master">Purchase Return Master</NavLink> },
+      { key:'/procurement/purchase-return-details', label:<NavLink to="/procurement/purchase-return-details">Purchase Return Details</NavLink> },
     ]
   },
   {
@@ -81,8 +82,8 @@ const menuItems = [
     label:'Sales & Trading',
     children:[
       { key:'/sales/orders', label:<NavLink to="/sales/orders">Sales Orders</NavLink> },
-      // { key:'/sales/invoicing', label:<NavLink to="/sales/invoicing">Invoicing</NavLink> },
-      { key:'/sales/returns', label:<NavLink to="/sales/returns">Returns</NavLink> },
+      { key:'/sales/returns', label:<NavLink to="/sales/returns">Sales Returns</NavLink> },
+      { key:'/trading/purchase/return', label:<NavLink to="/trading/purchase/return">Purchase Returns</NavLink> },
     ]
   },
   {

@@ -15,6 +15,12 @@ import TaxMaster from './pages/masters/TaxMaster'
 import LedgerMaster from './pages/masters/LedgerMaster'
 import OpeningStockMaster from './pages/masters/OpeningStockMaster'
 import PurchaseOrderEntry from './modules/project/po/entry'
+import Procurement from './modules/project/procurement'
+import PurchaseReturn from './modules/trading/purchase/return'
+import PurchaseOrderMaster from './modules/procurement/purchase-order-master'
+import PurchaseOrderDetails from './modules/procurement/purchase-order-details'
+import PurchaseReturnMaster from './modules/procurement/purchase-return-master'
+import PurchaseReturnDetails from './modules/procurement/purchase-return-details'
 
 import SalesOrderForm from './modules/project/invoice/SalesInvoiceForm'
 import NotFound from './pages/NotFound'
@@ -61,6 +67,12 @@ export default function App() {
           <Route path="masters/opening-stock" element={<OpeningStockMaster />} />
           <Route path="masters/ledgers" element={<LedgerMaster />} />
           <Route path="procurement/purchase-orders" element={<PurchaseOrderEntry />} />
+          <Route path="procurement" element={<Procurement />} />
+          <Route path="trading/purchase/return" element={<PurchaseReturn />} />
+          <Route path="procurement/purchase-order-master" element={<PurchaseOrderMaster />} />
+          <Route path="procurement/purchase-order-details" element={<PurchaseOrderDetails />} />
+          <Route path="procurement/purchase-return-master" element={<PurchaseReturnMaster />} />
+          <Route path="procurement/purchase-return-details" element={<PurchaseReturnDetails />} />
           <Route path="sales/orders" element={<SalesOrderForm />} />
          
           <Route path="*" element={<NotFound />} />

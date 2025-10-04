@@ -15,8 +15,9 @@ import {
   Divider,
   message
 } from 'antd'
-import { PlusOutlined, DeleteOutlined, PrinterOutlined, SaveOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, PrinterOutlined, SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import ERPMasterLayout from '../../../components/ERPMasterLayout'
 
 const { TextArea } = Input
 const { Title, Text } = Typography
@@ -340,37 +341,58 @@ const SalesOrderForm = ({ onOrderSaved }) => {
     }
   ]
 
+  const searchFields = [
+    { name: 'orderNo', placeholder: 'Order Number', type: 'input' },
+    { name: 'buyerName', placeholder: 'Buyer Name', type: 'input' },
+    { name: 'dateRange', placeholder: 'Date Range', type: 'dateRange' }
+  ]
+
+  const handleAdd = () => {
+    setShowForm(true)
+  }
+
+  const handleEdit = (record) => {
+    // Edit functionality can be added later
+    console.log('Edit:', record)
+  }
+
+  const handleDelete = (record) => {
+    const updated = orders.filter(item => item.id !== record.id)
+    setOrders(updated)
+    localStorage.setItem('salesOrders', JSON.stringify(updated))
+    message.success('Sales Order deleted successfully')
+  }
+
   if (!showForm) {
     return (
-      <div>
-        <Card>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <Title level={3}>Sales Order List</Title>
-            <Button type="primary" onClick={() => setShowForm(true)}>
-              Create New Order
-            </Button>
-          </div>
-          <Table
-            columns={orderColumns}
-            dataSource={orders}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
-          />
-        </Card>
-      </div>
+      <ERPMasterLayout
+        title="Sales Order Master"
+        data={orders}
+        columns={orderColumns}
+        searchFields={searchFields}
+        onAdd={handleAdd}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        buttonType="sales"
+      />
     )
   }
 
   return (
     <div>
-      <Card style={{ marginBottom: '16px' }}>
-        <Button type="default" onClick={() => setShowForm(false)} style={{ marginBottom: '8px' }}>
-          ← Back to Order List
-        </Button>
-      </Card>
       <Card>
-        <div style={{ textAlign: 'left', marginBottom: '24px' }}>
-          <Title level={3} style={{ margin: '0', color: '#333' }}>SALES ORDER</Title>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Button 
+              type="text" 
+              icon={<ArrowLeftOutlined />} 
+              onClick={() => setShowForm(false)}
+              style={{ marginRight: '8px' }}
+            />
+            <Title level={3} style={{ margin: '0', color: '#333' }}>
+              Create Sales Order
+            </Title>
+          </div>
         </div>
 
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
