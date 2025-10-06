@@ -16,7 +16,7 @@ import LedgerMaster from './pages/masters/LedgerMaster'
 import OpeningStockMaster from './pages/masters/OpeningStockMaster'
 import PurchaseOrderEntry from './modules/project/po/entry'
 import Procurement from './modules/project/procurement'
-import PurchaseReturn from './modules/trading/purchase/return'
+
 import PurchaseOrderMaster from './modules/procurement/purchase-order-master'
 import PurchaseOrderDetails from './modules/procurement/purchase-order-details'
 import PurchaseReturnMaster from './modules/procurement/purchase-return-master'
@@ -27,6 +27,7 @@ import ServiceStatus from './modules/project/service/ServiceStatus'
 import CreateServiceAssignment from './modules/project/service/CreateServiceAssignment'
 
 import SalesOrderForm from './modules/project/invoice/SalesInvoiceForm'
+import SalesReturns from './modules/sales/returns/SalesReturns'
 import NotFound from './pages/NotFound'
 
 const ProtectedRoute = ({ children }) => {
@@ -74,7 +75,7 @@ export default function App() {
           <Route path="masters/ledgers" element={<LedgerMaster />} />
           <Route path="procurement/purchase-orders" element={<PurchaseOrderEntry />} />
           <Route path="procurement" element={<Procurement />} />
-          <Route path="trading/purchase/return" element={<PurchaseReturn />} />
+
           <Route path="procurement/purchase-order-master" element={<PurchaseOrderMaster />} />
           <Route path="procurement/purchase-order-details" element={<PurchaseOrderDetails />} />
           <Route path="procurement/purchase-return-master" element={<PurchaseReturnMaster />} />
@@ -85,6 +86,7 @@ export default function App() {
           <Route path="operations/service-assign/create" element={<CreateServiceAssignment />} />
           <Route path="operations/service-status" element={<ServiceStatus />} />
           <Route path="sales/orders" element={<SalesOrderForm />} />
+          <Route path="sales/returns" element={<SalesReturns />} />
          
           <Route path="*" element={<NotFound />} />
         </Route>

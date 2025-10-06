@@ -83,7 +83,7 @@ const menuItems = [
     children:[
       { key:'/sales/orders', label:<NavLink to="/sales/orders">Sales Orders</NavLink> },
       { key:'/sales/returns', label:<NavLink to="/sales/returns">Sales Returns</NavLink> },
-      { key:'/trading/purchase/return', label:<NavLink to="/trading/purchase/return">Purchase Returns</NavLink> },
+
     ]
   },
   {
