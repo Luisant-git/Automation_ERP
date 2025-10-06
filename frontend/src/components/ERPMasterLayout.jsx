@@ -23,6 +23,8 @@ export default function ERPMasterLayout({
       case 'order': return 'Add New Order'
       case 'return': return 'Add New Return'
       case 'sales': return 'Add New Order'
+      case 'project': return 'Add New Project'
+      case 'service': return 'Assign Service'
       default: return 'Add New'
     }
   }

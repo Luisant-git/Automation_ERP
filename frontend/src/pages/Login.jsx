@@ -1,17 +1,23 @@
 import React from 'react'
-import { Form, Input, Button, Card, Typography, Checkbox } from 'antd'
+import { Form, Input, Button, Card, Typography, Checkbox, message } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import logo from '../assets/logo (1).jpg'
 
 const { Title, Text } = Typography
 
 const Login = ({ onLogin }) => {
+  const navigate = useNavigate()
+
   const handleSubmit = (values) => {
-    // Simple login logic - in real app, validate with backend
-    if (values.username && values.password) {
+    // Static login validation
+    if (values.username === 'admin@gmail.com' && values.password === 'Admin@123') {
       localStorage.setItem('isAuthenticated', 'true')
       localStorage.setItem('user', JSON.stringify({ username: values.username }))
       onLogin && onLogin()
+      navigate('/')
+    } else {
+      message.error('Invalid credentials!')
     }
   }
 

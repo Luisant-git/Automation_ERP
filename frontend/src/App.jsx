@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { ConfigProvider } from 'antd'
 import AppLayout from './layouts/AppLayout'
 import Login from './pages/Login'
@@ -21,9 +21,18 @@ import PurchaseOrderMaster from './modules/procurement/purchase-order-master'
 import PurchaseOrderDetails from './modules/procurement/purchase-order-details'
 import PurchaseReturnMaster from './modules/procurement/purchase-return-master'
 import PurchaseReturnDetails from './modules/procurement/purchase-return-details'
+import { ProjectList, CreateProject } from './modules/project/management'
+import ServiceAssignment from './modules/project/service/ServiceAssignment'
+import ServiceStatus from './modules/project/service/ServiceStatus'
+import CreateServiceAssignment from './modules/project/service/CreateServiceAssignment'
 
 import SalesOrderForm from './modules/project/invoice/SalesInvoiceForm'
 import NotFound from './pages/NotFound'
+
+const ProtectedRoute = ({ children }) => {
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
+  return isAuthenticated ? children : <Navigate to="/login" replace />
+}
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -43,18 +52,15 @@ export default function App() {
     setIsAuthenticated(false)
   }
 
-  if (!isAuthenticated) {
-    return (
-      <ConfigProvider>
-        <Login onLogin={handleLogin} />
-      </ConfigProvider>
-    )
-  }
-
   return (
     <ConfigProvider>
       <Routes>
-        <Route path="/" element={<AppLayout onLogout={handleLogout} />}>
+        <Route path="/login" element={<Login onLogin={handleLogin} />} />
+        <Route path="/" element={
+          <ProtectedRoute>
+            <AppLayout onLogout={handleLogout} />
+          </ProtectedRoute>
+        }>
           <Route index element={<Dashboard />} />
           <Route path="masters/customers" element={<CustomerMaster />} />
           <Route path="masters/suppliers" element={<SupplierMaster />} />
@@ -73,6 +79,11 @@ export default function App() {
           <Route path="procurement/purchase-order-details" element={<PurchaseOrderDetails />} />
           <Route path="procurement/purchase-return-master" element={<PurchaseReturnMaster />} />
           <Route path="procurement/purchase-return-details" element={<PurchaseReturnDetails />} />
+          <Route path="projects/list" element={<ProjectList />} />
+          <Route path="projects/create" element={<CreateProject />} />
+          <Route path="operations/service-assign" element={<ServiceAssignment />} />
+          <Route path="operations/service-assign/create" element={<CreateServiceAssignment />} />
+          <Route path="operations/service-status" element={<ServiceStatus />} />
           <Route path="sales/orders" element={<SalesOrderForm />} />
          
           <Route path="*" element={<NotFound />} />
