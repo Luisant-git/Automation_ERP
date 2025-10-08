@@ -81,6 +81,7 @@ const menuItems = [
     icon:<SwapOutlined/>,
     label:'Sales & Trading',
     children:[
+      { key:'/quotations', label:<NavLink to="/quotations">Quotations</NavLink> },
       { key:'/sales/orders', label:<NavLink to="/sales/orders">Sales Orders</NavLink> },
       { key:'/sales/returns', label:<NavLink to="/sales/returns">Sales Returns</NavLink> },
 

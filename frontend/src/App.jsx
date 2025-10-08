@@ -28,6 +28,7 @@ import CreateServiceAssignment from './modules/project/service/CreateServiceAssi
 
 import SalesOrderForm from './modules/project/invoice/SalesInvoiceForm'
 import SalesReturns from './modules/sales/returns/SalesReturns'
+import { QuotationForm, QuotationList } from './modules/quotation'
 import NotFound from './pages/NotFound'
 
 const ProtectedRoute = ({ children }) => {
@@ -87,6 +88,9 @@ export default function App() {
           <Route path="operations/service-status" element={<ServiceStatus />} />
           <Route path="sales/orders" element={<SalesOrderForm />} />
           <Route path="sales/returns" element={<SalesReturns />} />
+          <Route path="quotations" element={<QuotationList />} />
+          <Route path="quotations/create" element={<QuotationForm />} />
+          <Route path="quotations/edit" element={<QuotationForm />} />
          
           <Route path="*" element={<NotFound />} />
         </Route>
