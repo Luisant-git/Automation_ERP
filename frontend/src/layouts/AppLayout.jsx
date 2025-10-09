@@ -17,18 +17,32 @@ const menuItems = [
   {
     key: '/masters',
     icon: <DatabaseOutlined/>,
-    label: 'Master Data',
+    label: 'Master',
     children: [
-      { key:'/masters/customers', label:<NavLink to="/masters/customers">Customers</NavLink> },
-      { key:'/masters/suppliers', label:<NavLink to="/masters/suppliers">Suppliers</NavLink> },
+      { key:'/masters/ledgers', label:<NavLink to="/masters/ledgers">Ledgers</NavLink> },
+      { key:'/masters/opening-stock', label:<NavLink to="/masters/opening-stock">Opening Stock Entry</NavLink> },
+      { key:'/masters/taxes', label:<NavLink to="/masters/taxes">Tax Rates</NavLink> },
+      { key:'/masters/brands', label:<NavLink to="/masters/brands">Brands</NavLink> },
+      { key:'/masters/categories', label:<NavLink to="/masters/categories">Categories</NavLink> },
       { key:'/masters/materials', label:<NavLink to="/masters/materials">Materials</NavLink> },
       { key:'/masters/services', label:<NavLink to="/masters/services">Services</NavLink> },
       { key:'/masters/employees', label:<NavLink to="/masters/employees">Employees</NavLink> },
-      { key:'/masters/categories', label:<NavLink to="/masters/categories">Categories</NavLink> },
-      { key:'/masters/brands', label:<NavLink to="/masters/brands">Brands</NavLink> },
-      { key:'/masters/taxes', label:<NavLink to="/masters/taxes">Tax Rates</NavLink> },
-      { key:'/masters/opening-stock', label:<NavLink to="/masters/opening-stock">Opening Stock Entry</NavLink> },
-      { key:'/masters/ledgers', label:<NavLink to="/masters/ledgers">Ledgers</NavLink> },
+      { key:'/masters/customers', label:<NavLink to="/masters/customers">Customers</NavLink> },
+      { key:'/masters/suppliers', label:<NavLink to="/masters/suppliers">Suppliers</NavLink> },
+    ]
+  },
+  {
+    key: '/operations',
+    icon: <ToolOutlined/>,
+    label: 'Operations',
+    children: [
+      { type:'group', label:'Work Orders' },
+      { key:'/quotations', label:<NavLink to="/quotations">Quotations</NavLink> },
+      { key:'/operations/work-orders', label:<NavLink to="/operations/work-orders">Work Orders</NavLink> },
+      // { key:'/operations/scheduling', label:<NavLink to="/operations/scheduling">Scheduling</NavLink> },
+      { type:'group', label:'Service Management' },
+      { key:'/operations/service-assign', label:<NavLink to="/operations/service-assign">Service Assignment</NavLink> },
+      { key:'/operations/service-status', label:<NavLink to="/operations/service-status">Service Status</NavLink> },
     ]
   },
   {
@@ -38,21 +52,8 @@ const menuItems = [
     children: [
       { key:'/projects/create', label:<NavLink to="/projects/create">Create Project</NavLink> },
       { key:'/projects/list', label:<NavLink to="/projects/list">Project List</NavLink> },
-      { key:'/projects/planning', label:<NavLink to="/projects/planning">Project Planning</NavLink> },
-      { key:'/projects/tracking', label:<NavLink to="/projects/tracking">Progress Tracking</NavLink> },
-    ]
-  },
-  {
-    key: '/operations',
-    icon: <ToolOutlined/>,
-    label: 'Operations',
-    children: [
-      { type:'group', label:'Work Orders' },
-      { key:'/operations/work-orders', label:<NavLink to="/operations/work-orders">Work Orders</NavLink> },
-      { key:'/operations/scheduling', label:<NavLink to="/operations/scheduling">Scheduling</NavLink> },
-      { type:'group', label:'Service Management' },
-      { key:'/operations/service-assign', label:<NavLink to="/operations/service-assign">Service Assignment</NavLink> },
-      { key:'/operations/service-status', label:<NavLink to="/operations/service-status">Service Status</NavLink> },
+      { key:'/projects/planning', label:<NavLink to="/projects/planning">Project Assignment</NavLink> },
+      { key:'/projects/tracking', label:<NavLink to="/projects/tracking">Project Tracking</NavLink> },
     ]
   },
   {
@@ -81,8 +82,7 @@ const menuItems = [
     icon:<SwapOutlined/>,
     label:'Sales & Trading',
     children:[
-      { key:'/quotations', label:<NavLink to="/quotations">Quotations</NavLink> },
-      { key:'/sales/orders', label:<NavLink to="/sales/orders">Sales Orders</NavLink> },
+      { key:'/sales/orders', label:<NavLink to="/sales/orders">Sales Invoice</NavLink> },
       { key:'/sales/returns', label:<NavLink to="/sales/returns">Sales Returns</NavLink> },
 
     ]
@@ -92,9 +92,11 @@ const menuItems = [
     icon:<BarChartOutlined/>,
     label:'Reports & Analytics',
     children:[
-      { key:'/reports/financial', label:<NavLink to="/reports/financial">Financial Reports</NavLink> },
-      { key:'/reports/operational', label:<NavLink to="/reports/operational">Operational Reports</NavLink> },
-      { key:'/reports/inventory', label:<NavLink to="/reports/inventory">Inventory Reports</NavLink> },
+      { key:'/reports/project', label:<NavLink to="/reports/project">Project Reports</NavLink> },
+      { key:'/reports/service', label:<NavLink to="/reports/service">Service Reports</NavLink> },
+      { key:'/reports/purchase', label:<NavLink to="/reports/purchase">Purchase Reports</NavLink> },
+      { key:'/reports/sales', label:<NavLink to="/reports/sales">Sales Reports</NavLink> },
+      { key:'/reports/stock', label:<NavLink to="/reports/stock">Stock Reports</NavLink> },
     ]
   },
   {
