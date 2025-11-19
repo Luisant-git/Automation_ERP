@@ -38,11 +38,20 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
   
   // Auto-generate PO Number
   const generatePONumber = () => {
-    const date = new Date()
-    const year = date.getFullYear().toString().slice(-2)
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-    return `PO${year}${month}${random}`
+    const existing = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
+    const lastNumber = existing.length > 0 
+      ? Math.max(...existing.map(po => parseInt(po.poNumber?.replace('PO-', '') || 0))) 
+      : 0
+    return `PO-${String(lastNumber + 1).padStart(3, '0')}`
+  }
+
+  // Auto-generate Quotation Number
+  const generateQuotationNumber = () => {
+    const existing = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
+    const lastNumber = existing.length > 0 
+      ? Math.max(...existing.map(po => parseInt(po.quotationNumber?.split('-')[1] || 0))) 
+      : 0
+    return `QUO-${String(lastNumber + 1).padStart(3, '0')}`
   }
   
   // Initialize form with data
@@ -51,13 +60,13 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
       form.setFieldsValue({
         ...editingOrder,
         poDate: editingOrder.poDate ? dayjs(editingOrder.poDate) : dayjs(),
-        deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null,
-        referenceDate: editingOrder.referenceDate ? dayjs(editingOrder.referenceDate) : null
+        deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null
       })
       setItems(editingOrder.items || [])
     } else {
       form.setFieldsValue({
         poNumber: generatePONumber(),
+        quotationNumber: generateQuotationNumber(),
         poDate: dayjs(),
         poStatus: 1, // Draft
         currencyId: 1, // INR
@@ -243,7 +252,6 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
         ...totals,
         poDate: values.poDate?.format('YYYY-MM-DD'),
         deliveryDate: values.deliveryDate?.format('YYYY-MM-DD'),
-        referenceDate: values.referenceDate?.format('YYYY-MM-DD'),
         createdDate: new Date().toISOString(),
         createdBy: 1, // Current user ID
         companyId: 1,
@@ -287,23 +295,18 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
           {/* Purchase Order Header */}
           <Card title="Purchase Order Details" size="small" style={{ marginBottom: 16 }}>
             <Row gutter={16}>
-              <Col span={6}>
+              <Col span={8}>
                 <Form.Item name="poNumber" label="PO Number" rules={[{ required: true }]}>
                   <Input disabled />
                 </Form.Item>
               </Col>
-              <Col span={6}>
+              <Col span={8}>
+                <Form.Item name="quotationNumber" label="Quotation Number" rules={[{ required: true }]}>
+                  <Input disabled placeholder="Auto-generated" />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
                 <Form.Item name="poDate" label="PO Date" rules={[{ required: true }]}>
-                  <DatePicker style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-              <Col span={6}>
-                <Form.Item name="referenceNumber" label="Reference Number">
-                  <Input placeholder="Reference Number" />
-                </Form.Item>
-              </Col>
-              <Col span={6}>
-                <Form.Item name="referenceDate" label="Reference Date">
                   <DatePicker style={{ width: '100%' }} />
                 </Form.Item>
               </Col>

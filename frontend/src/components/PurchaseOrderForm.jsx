@@ -27,11 +27,20 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
 
   // Generate PO Number
   const generatePONumber = () => {
-    const date = new Date()
-    const year = date.getFullYear().toString().slice(-2)
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-    return `PO${year}${month}${random}`
+    const existing = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
+    const lastNumber = existing.length > 0 
+      ? Math.max(...existing.map(po => parseInt(po.poNumber?.replace('PO-', '') || 0))) 
+      : 0
+    return `PO-${String(lastNumber + 1).padStart(3, '0')}`
+  }
+
+  // Generate Quotation Number
+  const generateQuotationNumber = () => {
+    const existing = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
+    const lastNumber = existing.length > 0 
+      ? Math.max(...existing.map(po => parseInt(po.quotationNumber?.split('-')[1] || 0))) 
+      : 0
+    return `QUO-${String(lastNumber + 1).padStart(3, '0')}`
   }
 
   // Initialize form
@@ -40,13 +49,13 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       form.setFieldsValue({
         ...editingOrder,
         poDate: editingOrder.poDate ? dayjs(editingOrder.poDate) : dayjs(),
-        deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null,
-        referenceDate: editingOrder.referenceDate ? dayjs(editingOrder.referenceDate) : null
+        deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null
       })
       setItems(editingOrder.items || [])
     } else {
       form.setFieldsValue({
         poNumber: generatePONumber(),
+        quotationNumber: generateQuotationNumber(),
         poDate: dayjs(),
         poStatus: 1,
         currencyId: 1,
@@ -222,7 +231,6 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
         ...totals,
         poDate: values.poDate?.format('YYYY-MM-DD'),
         deliveryDate: values.deliveryDate?.format('YYYY-MM-DD'),
-        referenceDate: values.referenceDate?.format('YYYY-MM-DD'),
         createdDate: new Date().toISOString(),
         createdBy: 1,
         companyId: 1,
@@ -277,8 +285,18 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
           <Row gutter={24}>
             <Col span={12}>
               <Card size="small" title="Order Details">
-                <Form.Item name="poNumber" label="PO Number (auto-generated)">
-                  <Input disabled />
+                <Form.Item name="poNumber" label="PO Number">
+                  <Input disabled placeholder="Auto-generated" />
+                </Form.Item>
+                <Form.Item name="quotationNumber" label="Quotation Number">
+                  <Input disabled placeholder="Auto-generated" />
+                </Form.Item>
+                <Form.Item name="poType" label="PO Type" rules={[{ required: true }]}>
+                  <Select placeholder="Select PO Type">
+                    <Option value="project">Project</Option>
+                    <Option value="trade">Trade</Option>
+                    <Option value="shift">Shift</Option>
+                  </Select>
                 </Form.Item>
                 <Form.Item name="poDate" label="PO Date" rules={[{ required: true }]}>
                   <DatePicker style={{ width: '100%' }} />
@@ -296,7 +314,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
               </Card>
             </Col>
             <Col span={12}>
-              <Card size="small" title="Reference Details">
+              <Card size="small" title="Payment & Delivery">
                 <Form.Item name="paymentTermsId" label="Payment Terms">
                   <Select placeholder="Select Payment Terms">
                     <Option value={1}>Net 30</Option>
@@ -305,18 +323,6 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                     <Option value={4}>COD</Option>
                   </Select>
                 </Form.Item>
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="referenceNumber" label="Reference No.">
-                      <Input placeholder="Reference Number" />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="referenceDate" label="Date">
-                      <DatePicker style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                </Row>
                 <Form.Item name="deliveryTermsId" label="Delivery Terms">
                   <Select placeholder="Select Delivery Terms">
                     <Option value={1}>FOB</Option>
@@ -422,7 +428,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
           </Row>
 
           {/* Terms & Conditions */}
-          <Row gutter={24} style={{ marginTop: '24px' }}>
+          {/* <Row gutter={24} style={{ marginTop: '24px' }}>
             <Col span={24}>
               <Card size="small" title="Terms & Conditions">
                 <Form.Item name="termsConditions" label="Terms & Conditions">
@@ -430,7 +436,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                 </Form.Item>
               </Card>
             </Col>
-          </Row>
+          </Row> */}
         </Form>
       </Card>
 

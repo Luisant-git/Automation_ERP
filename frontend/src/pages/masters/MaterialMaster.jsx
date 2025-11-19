@@ -88,6 +88,7 @@ const MaterialMaster = () => {
       key: 1,
       itemCode: 'MTR001',
       itemName: 'Steel Rod 12mm',
+      serialNumber: 'SN-0001',
       hsnCode: '72142000',
       itemCategory: 'raw-material',
       brand: 'Generic',
@@ -102,6 +103,7 @@ const MaterialMaster = () => {
       key: 2,
       itemCode: 'MTR002',
       itemName: 'Copper Wire 2.5mm',
+      serialNumber: 'SN-0002',
       hsnCode: '85444900',
       itemCategory: 'raw-material',
       brand: 'Polycab',
@@ -116,6 +118,7 @@ const MaterialMaster = () => {
       key: 3,
       itemCode: 'FG001',
       itemName: 'Control Panel 415V',
+      serialNumber: 'SN-0003',
       hsnCode: '85371000',
       itemCategory: 'finished-goods',
       brand: 'Siemens',
@@ -130,6 +133,7 @@ const MaterialMaster = () => {
       key: 4,
       itemCode: 'SP001',
       itemName: 'Motor Bearing 6205',
+      serialNumber: 'SN-0004',
       hsnCode: '84821000',
       itemCategory: 'spare-parts',
       brand: 'SKF',
@@ -144,6 +148,7 @@ const MaterialMaster = () => {
       key: 5,
       itemCode: 'CON001',
       itemName: 'Hydraulic Oil SAE 68',
+      serialNumber: 'SN-0005',
       hsnCode: '27101981',
       itemCategory: 'consumables',
       brand: 'Shell',
@@ -156,17 +161,28 @@ const MaterialMaster = () => {
     }
   ])
 
+  const generateSerialNumber = () => {
+    const lastNumber = materials.length > 0 
+      ? Math.max(...materials.map(m => parseInt(m.serialNumber?.replace('SN-', '') || 0))) 
+      : 0
+    return `SN-${String(lastNumber + 1).padStart(4, '0')}`
+  }
+
+
+
   const columns = [
-    { title: 'Item Code', dataIndex: 'itemCode', key: 'itemCode' },
-    { title: 'Item Name', dataIndex: 'itemName', key: 'itemName' },
-    { title: 'HSN Code', dataIndex: 'hsnCode', key: 'hsnCode' },
-    { title: 'Category', dataIndex: 'itemCategory', key: 'itemCategory' },
-    { title: 'Brand', dataIndex: 'brand', key: 'brand' },
-    { title: 'Unit', dataIndex: 'unit', key: 'unit' },
-    { title: 'Tax %', dataIndex: 'tax', key: 'tax' },
-    { title: 'Purchase Rate', dataIndex: 'purchaseRate', key: 'purchaseRate' },
-    { title: 'Selling Rate', dataIndex: 'sellingRate', key: 'sellingRate' },
-    { title: 'Quantity', dataIndex: 'quantity', key: 'quantity' },
+    { title: 'Item Code', dataIndex: 'itemCode', key: 'itemCode', width: 100 },
+    { title: 'Item Name', dataIndex: 'itemName', key: 'itemName', width: 150 },
+    { title: 'Serial Number', dataIndex: 'serialNumber', key: 'serialNumber', width: 120 },
+
+    { title: 'HSN Code', dataIndex: 'hsnCode', key: 'hsnCode', width: 100 },
+    { title: 'Category', dataIndex: 'itemCategory', key: 'itemCategory', width: 120 },
+    { title: 'Brand', dataIndex: 'brand', key: 'brand', width: 120 },
+    { title: 'Unit', dataIndex: 'unit', key: 'unit', width: 80 },
+    { title: 'Tax %', dataIndex: 'tax', key: 'tax', width: 80 },
+    { title: 'Purchase Rate', dataIndex: 'purchaseRate', key: 'purchaseRate', width: 120 },
+    { title: 'Selling Rate', dataIndex: 'sellingRate', key: 'sellingRate', width: 120 },
+    { title: 'Quantity', dataIndex: 'quantity', key: 'quantity', width: 100 },
     { 
       title: 'Status', 
       dataIndex: 'isActive', 
@@ -209,6 +225,13 @@ const MaterialMaster = () => {
     setIsModalVisible(true)
   }
 
+  const handleAdd = () => {
+    form.setFieldsValue({
+      serialNumber: generateSerialNumber()
+    })
+    setIsModalVisible(true)
+  }
+
   const handleDelete = (key) => {
     Modal.confirm({
       title: 'Delete Material',
@@ -228,9 +251,9 @@ const MaterialMaster = () => {
     <div style={{ padding: '24px' }}>
       <Card 
         title="Material Master" 
-        extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>Add Material</Button>}
+        extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>Add Material</Button>}
       >
-        <Table columns={columns} dataSource={materials} scroll={{ x: 1200 }} />
+        <Table columns={columns} dataSource={materials} size="medium" />
       </Card>
 
       <Modal
@@ -254,6 +277,13 @@ const MaterialMaster = () => {
             <Col span={12}>
               <Form.Item name="itemName" label="Item Name" rules={[{ required: true }]}>
                 <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="serialNumber" label="Serial Number">
+                <Input disabled placeholder="Auto-generated" />
               </Form.Item>
             </Col>
           </Row>

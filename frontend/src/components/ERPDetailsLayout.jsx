@@ -1,5 +1,6 @@
-import React from 'react'
-import { Card, Table } from 'antd'
+import React, { useState } from 'react'
+import { Card, Table, Input, Space } from 'antd'
+import { SearchOutlined } from '@ant-design/icons'
 
 export default function ERPDetailsLayout({ 
   title, 
@@ -7,11 +8,30 @@ export default function ERPDetailsLayout({
   columns,
   loading = false 
 }) {
+  const [searchText, setSearchText] = useState('')
+
+  const filteredData = data.filter(item => {
+    if (!searchText) return true
+    return Object.values(item).some(value => 
+      String(value).toLowerCase().includes(searchText.toLowerCase())
+    )
+  })
+
   return (
     <Card title={title}>
+      <Space style={{ marginBottom: 16 }}>
+        <Input
+          placeholder="Search..."
+          prefix={<SearchOutlined />}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{ width: 300 }}
+          allowClear
+        />
+      </Space>
       <Table
         columns={columns}
-        dataSource={data}
+        dataSource={filteredData}
         rowKey="id"
         loading={loading}
         pagination={{

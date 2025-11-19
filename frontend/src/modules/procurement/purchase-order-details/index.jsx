@@ -11,6 +11,8 @@ export default function PurchaseOrderDetails() {
         ...item,
         id: item.key,
         poNumber: order.poNumber,
+        quotationNumber: order.quotationNumber,
+        poType: order.poType,
         poDate: order.poDate,
         supplierId: order.supplierId
       }))
@@ -24,6 +26,22 @@ export default function PurchaseOrderDetails() {
       dataIndex: 'poNumber',
       key: 'poNumber',
       width: 120
+    },
+    {
+      title: 'Quotation Number',
+      dataIndex: 'quotationNumber',
+      key: 'quotationNumber',
+      width: 150
+    },
+    {
+      title: 'PO Type',
+      dataIndex: 'poType',
+      key: 'poType',
+      width: 100,
+      render: (text) => {
+        const typeMap = { project: 'Project', trade: 'Trade', shift: 'Shift' }
+        return typeMap[text] || 'N/A'
+      }
     },
     {
       title: 'PO Date',

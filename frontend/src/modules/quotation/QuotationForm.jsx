@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { Form, Input, DatePicker, Select, Button, Card, Table, InputNumber, Space, Divider, Row, Col, message, Typography } from 'antd'
-import { PlusOutlined, DeleteOutlined, SaveOutlined, SendOutlined, ArrowLeftOutlined } from '@ant-design/icons'
+import { Form, Input, DatePicker, Select, Button, Card, Table, InputNumber, Space, Divider, Row, Col, message, Typography, Upload } from 'antd'
+import { PlusOutlined, DeleteOutlined, SaveOutlined, SendOutlined, ArrowLeftOutlined, UploadOutlined, FileExcelOutlined } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import dayjs from 'dayjs'
+import * as XLSX from 'xlsx'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -18,8 +19,29 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
   const [subtotal, setSubtotal] = useState(0)
   const [gstAmount, setGstAmount] = useState(0)
   const [totalAmount, setTotalAmount] = useState(0)
+  const [quotationNumber, setQuotationNumber] = useState('')
 
   const gstRate = 18
+
+  // Generate quotation number
+  const generateQuotationNumber = () => {
+    const existing = JSON.parse(localStorage.getItem('quotations') || '[]')
+    const lastNumber = existing.length > 0 
+      ? Math.max(...existing.map(q => parseInt(q.quotationNumber?.split('-')[1] || 0))) 
+      : 0
+    return `QUO-${String(lastNumber + 1).padStart(3, '0')}`
+  }
+
+  // Initialize quotation number on component mount
+  React.useEffect(() => {
+    if (!editData?.quotationNumber) {
+      const newQuotationNumber = generateQuotationNumber()
+      setQuotationNumber(newQuotationNumber)
+      form.setFieldsValue({ quotationNumber: newQuotationNumber })
+    } else {
+      setQuotationNumber(editData.quotationNumber)
+    }
+  }, [editData, form])
 
   const addLineItem = () => {
     const newItem = {
@@ -63,6 +85,36 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
     setTotalAmount(total)
   }
 
+  const handleExcelUpload = (file) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+        
+        // Skip header row and process data
+        const items = jsonData.slice(1).filter(row => row.length > 0).map((row, index) => ({
+          key: Date.now() + index,
+          description: row[0] || '',
+          quantity: parseFloat(row[1]) || 1,
+          unitPrice: parseFloat(row[2]) || 0,
+          amount: (parseFloat(row[1]) || 1) * (parseFloat(row[2]) || 0)
+        }))
+        
+        setLineItems(items)
+        calculateTotals(items)
+        message.success(`${items.length} items imported from Excel`)
+      } catch (error) {
+        message.error('Failed to parse Excel file. Please check the format.')
+      }
+    }
+    reader.readAsArrayBuffer(file)
+    return false
+  }
+
   const handleSubmit = async (values) => {
     try {
       const quotationData = {
@@ -71,7 +123,8 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
         subtotal,
         gstAmount,
         totalAmount,
-        quotationId: editData?.quotationId || `QUO-${Date.now()}`,
+        quotationNumber: quotationNumber,
+        quotationId: editData?.quotationId || quotationNumber,
         createdDate: dayjs().format('YYYY-MM-DD')
       }
       
@@ -184,6 +237,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
           initialValues={{
             validityDays: 30,
             gstRate: 18,
+            quotationNumber: quotationNumber,
             ...editData,
             quotationDate: editData?.date ? dayjs(editData.date) : dayjs()
           }}
@@ -191,11 +245,15 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item
-                label="Reference Number"
-                name="referenceNumber"
-                rules={[{ required: true, message: 'Please enter reference number' }]}
+                label="Quotation Number"
+                name="quotationNumber"
+                rules={[{ required: true, message: 'Quotation number is required' }]}
               >
-                <Input placeholder="REF-001" />
+                <Input 
+                  placeholder="Auto-generated" 
+                  disabled
+                  value={quotationNumber}
+                />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -268,15 +326,36 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
 
           <Divider>Line Items</Divider>
           
-          <div style={{ marginBottom: '16px' }}>
-            <Button
-              type="dashed"
-              onClick={addLineItem}
-              icon={<PlusOutlined />}
-              style={{ width: '100%' }}
-            >
-              Add Line Item
-            </Button>
+          <Row gutter={16} style={{ marginBottom: '16px' }}>
+            <Col span={12}>
+              <Button
+                type="dashed"
+                onClick={addLineItem}
+                icon={<PlusOutlined />}
+                style={{ width: '100%' }}
+              >
+                Add Line Item
+              </Button>
+            </Col>
+            <Col span={12}>
+              <Upload
+                beforeUpload={handleExcelUpload}
+                accept=".xlsx,.xls"
+                showUploadList={false}
+              >
+                <Button
+                  type="dashed"
+                  icon={<FileExcelOutlined />}
+                  style={{ width: '100%' }}
+                >
+                  Upload Costing Sheet (Excel)
+                </Button>
+              </Upload>
+            </Col>
+          </Row>
+          
+          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#666' }}>
+            Excel format: Column A - Description, Column B - Quantity, Column C - Unit Price
           </div>
 
           <Table

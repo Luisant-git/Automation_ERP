@@ -25,6 +25,20 @@ export default function PurchaseOrderMaster() {
       render: (text) => <strong style={{ color: '#1890ff' }}>{text}</strong>
     },
     {
+      title: 'Quotation Number',
+      dataIndex: 'quotationNumber',
+      key: 'quotationNumber'
+    },
+    {
+      title: 'PO Type',
+      dataIndex: 'poType',
+      key: 'poType',
+      render: (text) => {
+        const typeMap = { project: 'Project', trade: 'Trade', shift: 'Shift' }
+        return typeMap[text] || 'N/A'
+      }
+    },
+    {
       title: 'PO Date',
       dataIndex: 'poDate',
       key: 'poDate'

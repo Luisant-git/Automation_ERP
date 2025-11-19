@@ -24,17 +24,11 @@ export default function QuotationList() {
 
   const columns = [
     {
-      title: 'Quotation ID',
-      dataIndex: 'quotationId',
-      key: 'quotationId',
-      width: 120,
+      title: 'Quotation Number',
+      dataIndex: 'quotationNumber',
+      key: 'quotationNumber',
+      width: 150,
       render: (text) => <strong style={{ color: '#1890ff' }}>{text}</strong>
-    },
-    {
-      title: 'Reference',
-      dataIndex: 'referenceNumber',
-      key: 'referenceNumber',
-      width: 100
     },
     {
       title: 'Date',
@@ -115,8 +109,8 @@ export default function QuotationList() {
         const mockData = [
           {
             id: 1,
-            quotationId: 'QUO-2024-001',
-            referenceNumber: 'REF-001',
+            quotationId: 'QUO-001',
+            quotationNumber: 'QUO-001',
             date: '2024-01-15',
             validUntil: '2024-02-14',
             customer: 'ABC Industries',
@@ -126,8 +120,8 @@ export default function QuotationList() {
           },
           {
             id: 2,
-            quotationId: 'QUO-2024-002',
-            referenceNumber: 'REF-002',
+            quotationId: 'QUO-002',
+            quotationNumber: 'QUO-002',
             date: '2024-01-16',
             validUntil: '2024-02-15',
             customer: 'XYZ Corporation',
