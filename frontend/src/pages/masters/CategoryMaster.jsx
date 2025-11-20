@@ -6,13 +6,24 @@ const CategoryMaster = () => {
   const [form] = Form.useForm()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
-  const [categories, setCategories] = useState([
-    { key: 1, code: 'RM', name: 'Raw Material', description: 'Basic materials for production' },
-    { key: 2, code: 'FG', name: 'Finished Goods', description: 'Completed products ready for sale' },
-    { key: 3, code: 'SP', name: 'Spare Parts', description: 'Replacement parts and components' },
-    { key: 4, code: 'CON', name: 'Consumables', description: 'Items consumed during operations' },
-    { key: 5, code: 'TOOL', name: 'Tools', description: 'Equipment and tools' }
-  ])
+  const [categories, setCategories] = useState([])
+
+  React.useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('categories') || '[]')
+    if (saved.length === 0) {
+      const initial = [
+        { key: 1, id: 1, code: 'RM', name: 'Raw Material', description: 'Basic materials for production' },
+        { key: 2, id: 2, code: 'FG', name: 'Finished Goods', description: 'Completed products ready for sale' },
+        { key: 3, id: 3, code: 'SP', name: 'Spare Parts', description: 'Replacement parts and components' },
+        { key: 4, id: 4, code: 'CON', name: 'Consumables', description: 'Items consumed during operations' },
+        { key: 5, id: 5, code: 'TOOL', name: 'Tools', description: 'Equipment and tools' }
+      ]
+      localStorage.setItem('categories', JSON.stringify(initial))
+      setCategories(initial)
+    } else {
+      setCategories(saved)
+    }
+  }, [])
 
   const columns = [
     { title: 'Code', dataIndex: 'code', key: 'code', width: 100 },
@@ -32,13 +43,17 @@ const CategoryMaster = () => {
   ]
 
   const handleSubmit = (values) => {
+    let updated
     if (editingRecord) {
-      setCategories(categories.map(c => c.key === editingRecord.key ? { ...values, key: editingRecord.key } : c))
+      updated = categories.map(c => c.key === editingRecord.key ? { ...values, key: editingRecord.key, id: editingRecord.id } : c)
       message.success('Category updated successfully')
     } else {
-      setCategories([...categories, { ...values, key: Date.now() }])
+      const newId = Date.now()
+      updated = [...categories, { ...values, key: newId, id: newId }]
       message.success('Category added successfully')
     }
+    setCategories(updated)
+    localStorage.setItem('categories', JSON.stringify(updated))
     setIsModalVisible(false)
     form.resetFields()
     setEditingRecord(null)
@@ -58,7 +73,9 @@ const CategoryMaster = () => {
       okText: 'Yes, Delete',
       okButtonProps: { danger: true },
       onOk() {
-        setCategories(categories.filter(c => c.key !== key))
+        const updated = categories.filter(c => c.key !== key)
+        setCategories(updated)
+        localStorage.setItem('categories', JSON.stringify(updated))
         message.success('Category deleted successfully')
       }
     })

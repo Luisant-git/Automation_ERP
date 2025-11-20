@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Form, Input, DatePicker, Select, Button, Card, Table, InputNumber, Space, Divider, Row, Col, message, Typography, Upload } from 'antd'
-import { PlusOutlined, DeleteOutlined, SaveOutlined, SendOutlined, ArrowLeftOutlined, UploadOutlined, FileExcelOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, SaveOutlined, SendOutlined, ArrowLeftOutlined, UploadOutlined, FileExcelOutlined, CloseCircleOutlined } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
@@ -20,35 +20,65 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
   const [gstAmount, setGstAmount] = useState(0)
   const [totalAmount, setTotalAmount] = useState(0)
   const [quotationNumber, setQuotationNumber] = useState('')
+  const [baseNumber, setBaseNumber] = useState('')
+  const [version, setVersion] = useState(1)
+  const [excelFile, setExcelFile] = useState(null)
+  const [customers, setCustomers] = useState([])
+  const [materials, setMaterials] = useState([])
 
   const gstRate = 18
 
-  // Generate quotation number
-  const generateQuotationNumber = () => {
+  // Generate base quotation number
+  const generateBaseNumber = () => {
     const existing = JSON.parse(localStorage.getItem('quotations') || '[]')
-    const lastNumber = existing.length > 0 
-      ? Math.max(...existing.map(q => parseInt(q.quotationNumber?.split('-')[1] || 0))) 
-      : 0
-    return `QUO-${String(lastNumber + 1).padStart(3, '0')}`
+    const baseNumbers = existing.map(q => parseInt(q.baseNumber?.replace('QUO', '') || '0'))
+    const lastNumber = baseNumbers.length > 0 ? Math.max(...baseNumbers) : 0
+    return `QUO${String(lastNumber + 1).padStart(3, '0')}`
   }
 
   // Initialize quotation number on component mount
   React.useEffect(() => {
+    const savedCustomers = JSON.parse(localStorage.getItem('customers') || '[]')
+    setCustomers(savedCustomers)
+    const savedMaterials = JSON.parse(localStorage.getItem('materials') || '[]')
+    setMaterials(savedMaterials)
+    
     if (!editData?.quotationNumber) {
-      const newQuotationNumber = generateQuotationNumber()
-      setQuotationNumber(newQuotationNumber)
-      form.setFieldsValue({ quotationNumber: newQuotationNumber })
+      const newBase = generateBaseNumber()
+      const newVersion = 1
+      setBaseNumber(newBase)
+      setVersion(newVersion)
+      setQuotationNumber(newBase)
+      form.setFieldsValue({ quotationNumber: newBase })
     } else {
+      const base = editData.baseNumber || editData.quotationNumber.split('-')[0]
+      const ver = editData.version || 1
       setQuotationNumber(editData.quotationNumber)
+      setBaseNumber(base)
+      setVersion(ver)
+      form.setFieldsValue({ quotationNumber: editData.quotationNumber })
+      
+      // Load existing line items and excel file
+      if (editData.lineItems) {
+        setLineItems(editData.lineItems)
+        calculateTotals(editData.lineItems)
+      }
+      if (editData.excelFile) {
+        setExcelFile(editData.excelFile)
+      }
     }
   }, [editData, form])
 
   const addLineItem = () => {
     const newItem = {
       key: Date.now(),
+      itemCode: '',
+      itemName: '',
+      category: '',
       description: '',
       quantity: 1,
       unitPrice: 0,
+      tax: 0,
       amount: 0
     }
     setLineItems([...lineItems, newItem])
@@ -63,8 +93,24 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
   const updateLineItem = (key, field, value) => {
     const updatedItems = lineItems.map(item => {
       if (item.key === key) {
-        const updated = { ...item, [field]: value }
-        if (field === 'quantity' || field === 'unitPrice') {
+        let updated = { ...item, [field]: value }
+        
+        // Auto-fill from material master when itemCode is selected
+        if (field === 'itemCode') {
+          const material = materials.find(m => m.itemCode === value)
+          if (material) {
+            updated = {
+              ...updated,
+              itemName: material.itemName || '',
+              category: material.itemCategory || '',
+              description: material.itemName || '',
+              unitPrice: material.sellingRate || 0,
+              tax: material.tax || 0
+            }
+          }
+        }
+        
+        if (field === 'quantity' || field === 'unitPrice' || field === 'itemCode') {
           updated.amount = updated.quantity * updated.unitPrice
         }
         return updated
@@ -89,26 +135,15 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
-        const data = new Uint8Array(e.target.result)
-        const workbook = XLSX.read(data, { type: 'array' })
-        const sheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[sheetName]
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
-        
-        // Skip header row and process data
-        const items = jsonData.slice(1).filter(row => row.length > 0).map((row, index) => ({
-          key: Date.now() + index,
-          description: row[0] || '',
-          quantity: parseFloat(row[1]) || 1,
-          unitPrice: parseFloat(row[2]) || 0,
-          amount: (parseFloat(row[1]) || 1) * (parseFloat(row[2]) || 0)
-        }))
-        
-        setLineItems(items)
-        calculateTotals(items)
-        message.success(`${items.length} items imported from Excel`)
+        const base64 = btoa(new Uint8Array(e.target.result).reduce((data, byte) => data + String.fromCharCode(byte), ''))
+        setExcelFile({
+          name: file.name,
+          data: base64,
+          type: file.type
+        })
+        message.success(`File "${file.name}" uploaded successfully`)
       } catch (error) {
-        message.error('Failed to parse Excel file. Please check the format.')
+        message.error('Failed to upload file')
       }
     }
     reader.readAsArrayBuffer(file)
@@ -117,38 +152,97 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
 
   const handleSubmit = async (values) => {
     try {
-      const quotationData = {
-        ...values,
-        lineItems,
-        subtotal,
-        gstAmount,
-        totalAmount,
-        quotationNumber: quotationNumber,
-        quotationId: editData?.quotationId || quotationNumber,
-        createdDate: dayjs().format('YYYY-MM-DD')
-      }
+      const existing = JSON.parse(localStorage.getItem('quotations') || '[]')
       
       if (onSubmit) {
+        const quotationData = {
+          ...values,
+          lineItems,
+          subtotal,
+          gstAmount,
+          totalAmount,
+          quotationNumber: quotationNumber,
+          baseNumber: baseNumber,
+          version: version,
+          quotationId: editData?.quotationId || quotationNumber,
+          createdDate: editData?.createdDate || dayjs().format('YYYY-MM-DD'),
+          excelFile: excelFile
+        }
         onSubmit(quotationData)
-      } else {
-        // Save to localStorage for demo
-        const existing = JSON.parse(localStorage.getItem('quotations') || '[]')
+      } else if (editData?.id) {
+        // Check if only status changed
+        const lineItemsChanged = JSON.stringify(editData.lineItems) !== JSON.stringify(lineItems)
+        const excelChanged = JSON.stringify(editData.excelFile) !== JSON.stringify(excelFile)
+        const onlyStatusChanged = !lineItemsChanged && !excelChanged
         
-        if (editData?.id) {
-          // Update existing quotation
+        if (onlyStatusChanged) {
+          // Update existing quotation in place
+          const quotationData = {
+            ...values,
+            lineItems,
+            subtotal,
+            gstAmount,
+            totalAmount,
+            quotationNumber: quotationNumber,
+            baseNumber: baseNumber,
+            version: version,
+            quotationId: editData.quotationId || quotationNumber,
+            createdDate: editData.createdDate || dayjs().format('YYYY-MM-DD'),
+            excelFile: excelFile
+          }
           const updated = existing.map(q => 
-            q.id === editData.id ? { ...quotationData, id: editData.id } : q
+            q.id === editData.id ? { ...q, ...quotationData, id: editData.id } : q
           )
           localStorage.setItem('quotations', JSON.stringify(updated))
           message.success('Quotation updated successfully!')
+          navigate('/quotations')
         } else {
-          // Create new quotation
+          // Create new version when line items or excel changed
+          const sameBase = existing.filter(q => q.baseNumber === editData.baseNumber)
+          const versions = sameBase.map(q => q.version || 0)
+          const maxVer = versions.length > 0 ? Math.max(...versions) : 0
+          const newVersion = maxVer + 1
+          const newQuotationNumber = `${editData.baseNumber}-V${newVersion}`
+          
+          const quotationData = {
+            ...values,
+            lineItems,
+            subtotal,
+            gstAmount,
+            totalAmount,
+            quotationNumber: newQuotationNumber,
+            baseNumber: editData.baseNumber,
+            version: newVersion,
+            quotationId: editData.quotationId || editData.baseNumber,
+            createdDate: dayjs().format('YYYY-MM-DD'),
+            excelFile: excelFile
+          }
+          
           const newQuotation = { id: Date.now(), ...quotationData }
           existing.push(newQuotation)
           localStorage.setItem('quotations', JSON.stringify(existing))
-          message.success('Quotation created successfully!')
+          message.success(`Version V${newVersion} created!`)
+          navigate('/quotations')
         }
-        
+      } else {
+        // Create new quotation
+        const quotationData = {
+          ...values,
+          lineItems,
+          subtotal,
+          gstAmount,
+          totalAmount,
+          quotationNumber: baseNumber,
+          baseNumber: baseNumber,
+          version: 0,
+          quotationId: baseNumber,
+          createdDate: dayjs().format('YYYY-MM-DD'),
+          excelFile: excelFile
+        }
+        const newQuotation = { id: Date.now(), ...quotationData }
+        existing.push(newQuotation)
+        localStorage.setItem('quotations', JSON.stringify(existing))
+        message.success('Quotation created!')
         navigate('/quotations')
       }
     } catch (error) {
@@ -158,32 +252,60 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
 
   const columns = [
     {
-      title: 'Description',
-      dataIndex: 'description',
+      title: 'Item Code',
+      dataIndex: 'itemCode',
+      width: 150,
       render: (text, record) => (
-        <Input
+        <Select
           value={text}
-          onChange={(e) => updateLineItem(record.key, 'description', e.target.value)}
-          placeholder="Item description"
-        />
+          onChange={(value) => updateLineItem(record.key, 'itemCode', value)}
+          placeholder="Select Item"
+          showSearch
+          filterOption={(input, option) => {
+            const searchText = input.toLowerCase()
+            const optionText = option.children.toLowerCase()
+            return optionText.includes(searchText)
+          }}
+          style={{ width: '100%' }}
+          allowClear
+        >
+          {materials.map(m => (
+            <Option key={m.itemCode} value={m.itemCode}>
+              {m.itemCode} - {m.itemName}
+            </Option>
+          ))}
+        </Select>
       )
+    },
+    {
+      title: 'Item Name',
+      dataIndex: 'itemName',
+      width: 150,
+      render: (text) => text || '-'
+    },
+    {
+      title: 'Category',
+      dataIndex: 'category',
+      width: 120,
+      render: (text) => text || '-'
     },
     {
       title: 'Quantity',
       dataIndex: 'quantity',
-      width: 120,
+      width: 100,
       render: (text, record) => (
         <InputNumber
           value={text}
           onChange={(value) => updateLineItem(record.key, 'quantity', value)}
           min={1}
+          style={{ width: '100%' }}
         />
       )
     },
     {
       title: 'Unit Price',
       dataIndex: 'unitPrice',
-      width: 150,
+      width: 120,
       render: (text, record) => (
         <InputNumber
           value={text}
@@ -191,13 +313,20 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
           min={0}
           formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
           parser={value => value.replace(/₹\s?|(,*)/g, '')}
+          style={{ width: '100%' }}
         />
       )
     },
     {
+      title: 'Tax %',
+      dataIndex: 'tax',
+      width: 80,
+      render: (text) => `${text || 0}%`
+    },
+    {
       title: 'Amount',
       dataIndex: 'amount',
-      width: 150,
+      width: 120,
       render: (text) => `₹ ${text?.toLocaleString() || 0}`
     },
     {
@@ -243,7 +372,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
           }}
         >
           <Row gutter={16}>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 label="Quotation Number"
                 name="quotationNumber"
@@ -255,51 +384,53 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
                   value={quotationNumber}
                 />
               </Form.Item>
-            </Col>
-            <Col span={8}>
+              <Form.Item
+                label="Quotation Type"
+                name="quotationType"
+                rules={[{ required: true, message: 'Please select type' }]}
+              >
+                <Select placeholder="Select Type" disabled={!!editData?.id}>
+                  <Option value="project">Project</Option>
+                  <Option value="trade">Trade</Option>
+                  <Option value="shifting">Shifting</Option>
+                </Select>
+              </Form.Item>
               <Form.Item
                 label="Quotation Date"
                 name="quotationDate"
                 rules={[{ required: true, message: 'Please select date' }]}
               >
-                <DatePicker style={{ width: '100%' }} />
+                <DatePicker style={{ width: '100%' }} disabled={!!editData?.id} />
               </Form.Item>
-            </Col>
-            <Col span={8}>
               <Form.Item
                 label="Valid Until (Days)"
                 name="validityDays"
                 rules={[{ required: true, message: 'Please enter validity period' }]}
               >
-                <InputNumber min={1} max={365} style={{ width: '100%' }} />
+                <InputNumber min={1} max={365} style={{ width: '100%' }} disabled={!!editData?.id} />
               </Form.Item>
             </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 label="Customer"
                 name="customerId"
                 rules={[{ required: true, message: 'Please select customer' }]}
               >
-                <Select placeholder="Select customer">
-                  <Option value="1">ABC Industries</Option>
-                  <Option value="2">XYZ Corporation</Option>
-                  <Option value="3">Tech Solutions Ltd</Option>
+                <Select placeholder="Select customer" showSearch optionFilterProp="children" disabled={!!editData?.id}>
+                  {customers.map(customer => (
+                    <Option key={customer.id} value={customer.id}>
+                      {customer.name || customer.customerName}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
-            </Col>
-            <Col span={8}>
               <Form.Item
                 label="Project Name"
                 name="projectName"
                 rules={[{ required: true, message: 'Please enter project name' }]}
               >
-                <Input placeholder="Project name" />
+                <Input placeholder="Project name" disabled={!!editData?.id} />
               </Form.Item>
-            </Col>
-            <Col span={8}>
               <Form.Item
                 label="Status"
                 name="status"
@@ -313,16 +444,15 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
                   <Option value="Expired">Expired</Option>
                 </Select>
               </Form.Item>
+              <Form.Item
+                label="Description"
+                name="description"
+                rules={[{ required: true, message: 'Please enter description' }]}
+              >
+                <TextArea rows={3} placeholder="Quotation description" disabled={!!editData?.id} />
+              </Form.Item>
             </Col>
           </Row>
-
-          <Form.Item
-            label="Description"
-            name="description"
-            rules={[{ required: true, message: 'Please enter description' }]}
-          >
-            <TextArea rows={3} placeholder="Quotation description" />
-          </Form.Item>
 
           <Divider>Line Items</Divider>
           
@@ -338,25 +468,36 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
               </Button>
             </Col>
             <Col span={12}>
-              <Upload
-                beforeUpload={handleExcelUpload}
-                accept=".xlsx,.xls"
-                showUploadList={false}
-              >
-                <Button
-                  type="dashed"
-                  icon={<FileExcelOutlined />}
-                  style={{ width: '100%' }}
+              {excelFile ? (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <FileExcelOutlined style={{ fontSize: '32px', color: '#52c41a' }} />
+                  <span style={{ flex: 0.5, color: '#52c41a' }}>{excelFile.name}</span>
+                  <Button
+                    danger
+                    icon={<CloseCircleOutlined />}
+                    onClick={() => {
+                      setExcelFile(null)
+                      message.info('File removed')
+                    }}
+                  />
+                </div>
+              ) : (
+                <Upload
+                  beforeUpload={handleExcelUpload}
+                  accept=".xlsx,.xls"
+                  showUploadList={false}
                 >
-                  Upload Costing Sheet (Excel)
-                </Button>
-              </Upload>
+                  <Button
+                    type="dashed"
+                    icon={<FileExcelOutlined />}
+                    style={{ width: '100%' }}
+                  >
+                    Upload Costing Sheet (Excel)
+                  </Button>
+                </Upload>
+              )}
             </Col>
           </Row>
-          
-          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#666' }}>
-            Excel format: Column A - Description, Column B - Quantity, Column C - Unit Price
-          </div>
 
           <Table
             columns={columns}
@@ -385,21 +526,6 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
               </Card>
             </Col>
           </Row>
-
-          <Form.Item
-            label="Terms & Conditions"
-            name="termsConditions"
-            style={{ marginTop: '24px' }}
-          >
-            <TextArea
-              rows={4}
-              placeholder="Enter terms and conditions"
-              defaultValue="1. Prices are valid for 30 days from quotation date.
-2. Payment terms: 50% advance, 50% on delivery.
-3. Delivery time: 15-20 working days from order confirmation.
-4. GST extra as applicable."
-            />
-          </Form.Item>
 
         </Form>
       </Card>

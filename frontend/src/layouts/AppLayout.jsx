@@ -36,9 +36,9 @@ const menuItems = [
     icon: <ToolOutlined/>,
     label: 'Operations',
     children: [
-      { type:'group', label:'Work Orders' },
+      // { type:'group', label:'Work Orders' },
       { key:'/quotations', label:<NavLink to="/quotations">Quotations</NavLink> },
-      { key:'/operations/work-orders', label:<NavLink to="/operations/work-orders">Work Orders</NavLink> },
+      // { key:'/operations/work-orders', label:<NavLink to="/operations/work-orders">Work Orders</NavLink> },
       // { key:'/operations/scheduling', label:<NavLink to="/operations/scheduling">Scheduling</NavLink> },
       { type:'group', label:'Service Management' },
       { key:'/operations/service-assign', label:<NavLink to="/operations/service-assign">Service Assignment</NavLink> },

@@ -24,6 +24,8 @@ const { Option } = Select
 export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
   const [form] = Form.useForm()
   const [items, setItems] = useState([])
+  const [quotations, setQuotations] = useState([])
+  const [materials, setMaterials] = useState([])
 
   // Generate PO Number
   const generatePONumber = () => {
@@ -34,17 +36,17 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     return `PO-${String(lastNumber + 1).padStart(3, '0')}`
   }
 
-  // Generate Quotation Number
-  const generateQuotationNumber = () => {
-    const existing = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-    const lastNumber = existing.length > 0 
-      ? Math.max(...existing.map(po => parseInt(po.quotationNumber?.split('-')[1] || 0))) 
-      : 0
-    return `QUO-${String(lastNumber + 1).padStart(3, '0')}`
+  // Load quotations and materials from localStorage
+  const loadQuotations = () => {
+    const savedQuotations = JSON.parse(localStorage.getItem('quotations') || '[]')
+    setQuotations(savedQuotations)
+    const savedMaterials = JSON.parse(localStorage.getItem('materials') || '[]')
+    setMaterials(savedMaterials)
   }
 
   // Initialize form
   useEffect(() => {
+    loadQuotations()
     if (editingOrder) {
       form.setFieldsValue({
         ...editingOrder,
@@ -55,7 +57,6 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     } else {
       form.setFieldsValue({
         poNumber: generatePONumber(),
-        quotationNumber: generateQuotationNumber(),
         poDate: dayjs(),
         poStatus: 1,
         currencyId: 1,
@@ -63,6 +64,65 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       })
     }
   }, [editingOrder])
+
+  // Handle quotation selection
+  const handleQuotationSelect = (quotationIds) => {
+    if (!quotationIds || quotationIds.length === 0) {
+      setItems([])
+      form.setFieldsValue({ poType: undefined })
+      return
+    }
+    
+    const selectedQuotations = quotations.filter(q => quotationIds.includes(q.id))
+    const allItems = []
+    let poType = ''
+    const quotationNumbers = []
+    
+    selectedQuotations.forEach((quotation, qIndex) => {
+      quotationNumbers.push(quotation.quotationNumber)
+      const quotationItems = (quotation.lineItems || []).map((item, index) => {
+        const material = materials.find(m => m.itemCode === item.itemCode)
+        const taxRate = item.tax || material?.tax || 18
+        const taxableAmount = (item.quantity || 1) * (item.unitPrice || 0)
+        const cgstPercentage = taxRate / 2
+        const sgstPercentage = taxRate / 2
+        const cgstAmount = taxableAmount * cgstPercentage / 100
+        const sgstAmount = taxableAmount * sgstPercentage / 100
+        const totalAmount = taxableAmount + cgstAmount + sgstAmount
+        
+        return {
+          key: Date.now() + qIndex * 1000 + index,
+          itemCode: item.itemCode || '',
+          itemName: item.itemName || item.description || '',
+          category: item.category || material?.itemCategory || '',
+          partNumber: '',
+          description: item.description || item.itemName || '',
+          quantity: item.quantity || 1,
+          rate: item.unitPrice || 0,
+          hsnCode: material?.hsnCode || '',
+          unitId: 1,
+          discountPercentage: 0,
+          discountAmount: 0,
+          cgstPercentage: cgstPercentage,
+          sgstPercentage: sgstPercentage,
+          igstPercentage: 0,
+          taxableAmount: taxableAmount,
+          cgstAmount: cgstAmount,
+          sgstAmount: sgstAmount,
+          igstAmount: 0,
+          totalAmount: totalAmount
+        }
+      })
+      allItems.push(...quotationItems)
+      if (qIndex === 0) poType = quotation.quotationType || 'project'
+    })
+    
+    setItems(allItems)
+    form.setFieldsValue({
+      poType: poType,
+      quotationNumberDisplay: quotationNumbers.join(', ')
+    })
+  }
 
   // Item management
   const handleAddItem = () => {
@@ -91,7 +151,23 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
   const updateItem = (key, field, value) => {
     const updatedItems = items.map(item => {
       if (item.key === key) {
-        const updatedItem = { ...item, [field]: value }
+        let updatedItem = { ...item, [field]: value }
+        
+        // Auto-fill from material master when itemCode is selected
+        if (field === 'itemCode') {
+          const material = materials.find(m => m.itemCode === value)
+          if (material) {
+            updatedItem = {
+              ...updatedItem,
+              itemName: material.itemName || '',
+              category: material.itemCategory || '',
+              hsnCode: material.hsnCode || '',
+              rate: material.purchaseRate || 0,
+              cgstPercentage: (material.tax || 18) / 2,
+              sgstPercentage: (material.tax || 18) / 2
+            }
+          }
+        }
         
         // Recalculate amounts
         const taxableAmount = (updatedItem.quantity * updatedItem.rate) - (updatedItem.discountAmount || 0)
@@ -135,9 +211,51 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       render: (_, __, index) => index + 1
     },
     {
-      title: 'Description of Goods/Services',
+      title: 'Item Code',
+      dataIndex: 'itemCode',
+      width: 120,
+      render: (text) => text || '-'
+    },
+    {
+      title: 'Item Name',
+      dataIndex: 'itemName',
+      width: 150,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.key, 'itemName', e.target.value)}
+          placeholder="Item Name"
+        />
+      )
+    },
+    {
+      title: 'Category',
+      dataIndex: 'category',
+      width: 120,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.key, 'category', e.target.value)}
+          placeholder="Category"
+        />
+      )
+    },
+    {
+      title: 'Part Number (P/N)',
+      dataIndex: 'partNumber',
+      width: 120,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.key, 'partNumber', e.target.value)}
+          placeholder="P/N"
+        />
+      )
+    },
+    {
+      title: 'Description',
       dataIndex: 'description',
-      width: 250,
+      width: 200,
       render: (text, record) => (
         <Input
           value={text}
@@ -225,8 +343,12 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
 
   const handleSubmit = async (values) => {
     try {
+      const selectedQuotations = quotations.filter(q => (values.quotationNumber || []).includes(q.id))
+      const quotationNumbers = selectedQuotations.map(q => q.quotationNumber).join(', ')
+      
       const orderData = {
         ...values,
+        quotationNumber: quotationNumbers,
         items,
         ...totals,
         poDate: values.poDate?.format('YYYY-MM-DD'),
@@ -282,14 +404,29 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
 
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           {/* Header Section */}
-          <Row gutter={24}>
-            <Col span={12}>
-              <Card size="small" title="Order Details">
+          <Card size="small" title="Order Details" style={{ marginBottom: '16px' }}>
+            <Row gutter={16}>
+              <Col span={12}>
                 <Form.Item name="poNumber" label="PO Number">
                   <Input disabled placeholder="Auto-generated" />
                 </Form.Item>
                 <Form.Item name="quotationNumber" label="Quotation Number">
-                  <Input disabled placeholder="Auto-generated" />
+                  <Select 
+                    mode="multiple"
+                    placeholder="Select Quotations" 
+                    onChange={handleQuotationSelect}
+                    showSearch
+                    optionFilterProp="children"
+                  >
+                    {quotations.map(q => (
+                      <Option key={q.id} value={q.id}>
+                        {q.quotationNumber} - {q.projectName || 'N/A'}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+                <Form.Item name="workOrderNumber" label="Work Order Number">
+                  <Input placeholder="Enter work order number" />
                 </Form.Item>
                 <Form.Item name="poType" label="PO Type" rules={[{ required: true }]}>
                   <Select placeholder="Select PO Type">
@@ -298,6 +435,8 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                     <Option value="shift">Shift</Option>
                   </Select>
                 </Form.Item>
+              </Col>
+              <Col span={12}>
                 <Form.Item name="poDate" label="PO Date" rules={[{ required: true }]}>
                   <DatePicker style={{ width: '100%' }} />
                 </Form.Item>
@@ -311,32 +450,9 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                     <Option value={3}>Approved</Option>
                   </Select>
                 </Form.Item>
-              </Card>
-            </Col>
-            <Col span={12}>
-              <Card size="small" title="Payment & Delivery">
-                <Form.Item name="paymentTermsId" label="Payment Terms">
-                  <Select placeholder="Select Payment Terms">
-                    <Option value={1}>Net 30</Option>
-                    <Option value={2}>Net 15</Option>
-                    <Option value={3}>Immediate</Option>
-                    <Option value={4}>COD</Option>
-                  </Select>
-                </Form.Item>
-                <Form.Item name="deliveryTermsId" label="Delivery Terms">
-                  <Select placeholder="Select Delivery Terms">
-                    <Option value={1}>FOB</Option>
-                    <Option value={2}>CIF</Option>
-                    <Option value={3}>Ex-Works</Option>
-                    <Option value={4}>DDP</Option>
-                  </Select>
-                </Form.Item>
-                <Form.Item name="exchangeRate" label="Exchange Rate" initialValue={1}>
-                  <InputNumber style={{ width: '100%' }} min={0} step={0.01} />
-                </Form.Item>
-              </Card>
-            </Col>
-          </Row>
+              </Col>
+            </Row>
+          </Card>
 
           {/* Supplier Information */}
           <Row gutter={24} style={{ marginTop: '16px' }}>

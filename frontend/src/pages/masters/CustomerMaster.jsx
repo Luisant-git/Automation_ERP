@@ -39,50 +39,64 @@ const CustomerMaster = () => {
     { code: '05', name: 'Uttarakhand' },
     { code: '19', name: 'West Bengal' }
   ]
-  const [customers, setCustomers] = useState([
-    {
-      key: 1,
-      name: 'Rajesh Kumar',
-      companyName: 'Tata Steel Ltd',
-      contactPerson: 'Amit Sharma',
-      contactNo: '+91-9876543210',
-      emailId: 'rajesh.kumar@tatasteel.com',
-      phoneNo: '+91-22-66658000',
-      gstNumber: '27AAACT2727Q1ZZ',
-      billingAddress: { address: 'Bombay House, 24 Homi Mody Street, Mumbai 400001', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' },
-      shippingAddresses: [
-        { address: 'Tata Steel Complex, Jamshedpur, Jharkhand 831001', state: 'Jharkhand', stateCode: '20', city: 'Jamshedpur', country: 'India' }
+  const [customers, setCustomers] = useState([])
+
+  React.useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('customers') || '[]')
+    if (saved.length === 0) {
+      const initial = [
+        {
+          key: 1,
+          id: 1,
+          name: 'Rajesh Kumar',
+          companyName: 'Tata Steel Ltd',
+          contactPerson: 'Amit Sharma',
+          contactNo: '+91-9876543210',
+          emailId: 'rajesh.kumar@tatasteel.com',
+          phoneNo: '+91-22-66658000',
+          gstNumber: '27AAACT2727Q1ZZ',
+          billingAddress: { address: 'Bombay House, 24 Homi Mody Street, Mumbai 400001', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' },
+          shippingAddresses: [
+            { address: 'Tata Steel Complex, Jamshedpur, Jharkhand 831001', state: 'Jharkhand', stateCode: '20', city: 'Jamshedpur', country: 'India' }
+          ]
+        },
+        {
+          key: 2,
+          id: 2,
+          name: 'Priya Patel',
+          companyName: 'Reliance Industries',
+          contactPerson: 'Suresh Patel',
+          contactNo: '+91-9123456789',
+          emailId: 'priya.patel@ril.com',
+          phoneNo: '+91-22-30386000',
+          gstNumber: '24AAACR5055K1Z5',
+          billingAddress: { address: '3rd Floor, Maker Chambers IV, Nariman Point, Mumbai 400021', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' },
+          shippingAddresses: [
+            { address: 'Reliance Corporate Park, Navi Mumbai 400701', state: 'Maharashtra', stateCode: '27', city: 'Navi Mumbai', country: 'India' }
+          ]
+        },
+        {
+          key: 3,
+          id: 3,
+          name: 'Vikram Singh',
+          companyName: 'Larsen & Toubro',
+          contactPerson: 'Ravi Kumar',
+          contactNo: '+91-9988776655',
+          emailId: 'vikram.singh@larsentoubro.com',
+          phoneNo: '+91-44-28267000',
+          gstNumber: '33AAACL0072A1ZG',
+          billingAddress: { address: 'L&T House, N.M. Marg, Ballard Estate, Mumbai 400001', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' },
+          shippingAddresses: [
+            { address: 'L&T House, Ballard Estate, Mumbai 400001', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' }
+          ]
+        }
       ]
-    },
-    {
-      key: 2,
-      name: 'Priya Patel',
-      companyName: 'Reliance Industries',
-      contactPerson: 'Suresh Patel',
-      contactNo: '+91-9123456789',
-      emailId: 'priya.patel@ril.com',
-      phoneNo: '+91-22-30386000',
-      gstNumber: '24AAACR5055K1Z5',
-      billingAddress: { address: '3rd Floor, Maker Chambers IV, Nariman Point, Mumbai 400021', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' },
-      shippingAddresses: [
-        { address: 'Reliance Corporate Park, Navi Mumbai 400701', state: 'Maharashtra', stateCode: '27', city: 'Navi Mumbai', country: 'India' }
-      ]
-    },
-    {
-      key: 3,
-      name: 'Vikram Singh',
-      companyName: 'Larsen & Toubro',
-      contactPerson: 'Ravi Kumar',
-      contactNo: '+91-9988776655',
-      emailId: 'vikram.singh@larsentoubro.com',
-      phoneNo: '+91-44-28267000',
-      gstNumber: '33AAACL0072A1ZG',
-      billingAddress: { address: 'L&T House, N.M. Marg, Ballard Estate, Mumbai 400001', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' },
-      shippingAddresses: [
-        { address: 'L&T House, Ballard Estate, Mumbai 400001', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' }
-      ]
+      localStorage.setItem('customers', JSON.stringify(initial))
+      setCustomers(initial)
+    } else {
+      setCustomers(saved)
     }
-  ])
+  }, [])
 
   const columns = [
     { title: 'Name', dataIndex: 'name', key: 'name' },
@@ -109,13 +123,17 @@ const CustomerMaster = () => {
   ]
 
   const handleSubmit = (values) => {
+    let updated
     if (editingRecord) {
-      setCustomers(customers.map(c => c.key === editingRecord.key ? { ...values, key: editingRecord.key } : c))
+      updated = customers.map(c => c.key === editingRecord.key ? { ...values, key: editingRecord.key, id: editingRecord.id } : c)
       message.success('Customer updated successfully')
     } else {
-      setCustomers([...customers, { ...values, key: Date.now() }])
+      const newId = Date.now()
+      updated = [...customers, { ...values, key: newId, id: newId }]
       message.success('Customer added successfully')
     }
+    setCustomers(updated)
+    localStorage.setItem('customers', JSON.stringify(updated))
     setIsModalVisible(false)
     form.resetFields()
     setEditingRecord(null)
@@ -136,7 +154,9 @@ const CustomerMaster = () => {
       okButtonProps: { style: { backgroundColor: '#ff4d4f', color: '#ffffffff', borderColor: '#ff4d4f' } },
       cancelText: 'Cancel',
       onOk() {
-        setCustomers(customers.filter(c => c.key !== key))
+        const updated = customers.filter(c => c.key !== key)
+        setCustomers(updated)
+        localStorage.setItem('customers', JSON.stringify(updated))
         message.success('Customer deleted successfully')
       }
     })

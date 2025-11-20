@@ -83,7 +83,12 @@ const MaterialMaster = () => {
     'OEM',
     'Custom'
   ]
-  const [materials, setMaterials] = useState([
+  const [materials, setMaterials] = useState([])
+
+  React.useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('materials') || '[]')
+    if (saved.length === 0) {
+      const initial = [
     {
       key: 1,
       itemCode: 'MTR001',
@@ -159,7 +164,13 @@ const MaterialMaster = () => {
       quantity: 500,
       isActive: true
     }
-  ])
+      ]
+      localStorage.setItem('materials', JSON.stringify(initial))
+      setMaterials(initial)
+    } else {
+      setMaterials(saved)
+    }
+  }, [])
 
   const generateSerialNumber = () => {
     const lastNumber = materials.length > 0 
@@ -207,13 +218,17 @@ const MaterialMaster = () => {
   ]
 
   const handleSubmit = (values) => {
+    let updated
     if (editingRecord) {
-      setMaterials(materials.map(m => m.key === editingRecord.key ? { ...values, key: editingRecord.key } : m))
+      updated = materials.map(m => m.key === editingRecord.key ? { ...values, key: editingRecord.key, id: editingRecord.id } : m)
       message.success('Material updated successfully')
     } else {
-      setMaterials([...materials, { ...values, key: Date.now() }])
+      const newId = Date.now()
+      updated = [...materials, { ...values, key: newId, id: newId }]
       message.success('Material added successfully')
     }
+    setMaterials(updated)
+    localStorage.setItem('materials', JSON.stringify(updated))
     setIsModalVisible(false)
     form.resetFields()
     setEditingRecord(null)
@@ -241,7 +256,9 @@ const MaterialMaster = () => {
       okButtonProps: { style: { backgroundColor: '#ff4d4f', color: '#ffffffff', borderColor: '#ff4d4f' } },
       cancelText: 'Cancel',
       onOk() {
-        setMaterials(materials.filter(m => m.key !== key))
+        const updated = materials.filter(m => m.key !== key)
+        setMaterials(updated)
+        localStorage.setItem('materials', JSON.stringify(updated))
         message.success('Material deleted successfully')
       }
     })
@@ -283,7 +300,7 @@ const MaterialMaster = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="serialNumber" label="Serial Number">
-                <Input disabled placeholder="Auto-generated" />
+                <Input placeholder="Enter serial number" />
               </Form.Item>
             </Col>
           </Row>

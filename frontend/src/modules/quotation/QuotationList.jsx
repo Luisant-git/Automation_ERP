@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { message, Modal, Tag } from 'antd'
+import { message, Modal, Tag, Button } from 'antd'
+import { DownloadOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import ERPMasterLayout from '../../components/ERPMasterLayout'
@@ -7,6 +8,7 @@ import ERPMasterLayout from '../../components/ERPMasterLayout'
 export default function QuotationList() {
   const navigate = useNavigate()
   const [quotations, setQuotations] = useState([])
+  const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(false)
 
 
@@ -31,6 +33,16 @@ export default function QuotationList() {
       render: (text) => <strong style={{ color: '#1890ff' }}>{text}</strong>
     },
     {
+      title: 'Type',
+      dataIndex: 'quotationType',
+      key: 'quotationType',
+      width: 100,
+      render: (type) => {
+        const typeMap = { project: 'Project', trade: 'Trade', shifting: 'Shifting' }
+        return <Tag color="blue">{typeMap[type] || 'N/A'}</Tag>
+      }
+    },
+    {
       title: 'Date',
       dataIndex: 'date',
       key: 'date',
@@ -39,9 +51,13 @@ export default function QuotationList() {
     },
     {
       title: 'Customer',
-      dataIndex: 'customer',
+      dataIndex: 'customerId',
       key: 'customer',
-      width: 150
+      width: 150,
+      render: (customerId) => {
+        const customer = customers.find(c => c.id === customerId)
+        return customer?.name || customer?.companyName || 'N/A'
+      }
     },
     {
       title: 'Project',
@@ -62,6 +78,20 @@ export default function QuotationList() {
       key: 'status',
       width: 100,
       render: (status) => <Tag color={getStatusColor(status)}>{status}</Tag>
+    },
+    {
+      title: 'Costing Sheet',
+      key: 'download',
+      width: 120,
+      render: (_, record) => record.excelFile ? (
+        <Button
+          type="link"
+          icon={<DownloadOutlined />}
+          onClick={() => handleDownloadExcel(record)}
+        >
+          Download
+        </Button>
+      ) : '-'
     }
   ]
 
@@ -96,6 +126,8 @@ export default function QuotationList() {
   ]
 
   useEffect(() => {
+    const savedCustomers = JSON.parse(localStorage.getItem('customers') || '[]')
+    setCustomers(savedCustomers)
     fetchQuotations()
   }, [])
 
@@ -103,38 +135,7 @@ export default function QuotationList() {
     setLoading(true)
     try {
       const savedQuotations = JSON.parse(localStorage.getItem('quotations') || '[]')
-      
-      // Add sample data if no quotations exist
-      if (savedQuotations.length === 0) {
-        const mockData = [
-          {
-            id: 1,
-            quotationId: 'QUO-001',
-            quotationNumber: 'QUO-001',
-            date: '2024-01-15',
-            validUntil: '2024-02-14',
-            customer: 'ABC Industries',
-            projectName: 'Factory Automation',
-            totalAmount: 250000,
-            status: 'Draft'
-          },
-          {
-            id: 2,
-            quotationId: 'QUO-002',
-            quotationNumber: 'QUO-002',
-            date: '2024-01-16',
-            validUntil: '2024-02-15',
-            customer: 'XYZ Corporation',
-            projectName: 'Conveyor System',
-            totalAmount: 180000,
-            status: 'Sent'
-          }
-        ]
-        localStorage.setItem('quotations', JSON.stringify(mockData))
-        setQuotations(mockData)
-      } else {
-        setQuotations(savedQuotations)
-      }
+      setQuotations(savedQuotations)
     } catch (error) {
       message.error('Failed to fetch quotations')
     } finally {
@@ -170,6 +171,30 @@ export default function QuotationList() {
 
   const handleSearch = (values) => {
     console.log('Search values:', values)
+  }
+
+  const handleDownloadExcel = (record) => {
+    if (!record.excelFile) {
+      message.error('No file available')
+      return
+    }
+    try {
+      const binary = atob(record.excelFile.data)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i)
+      }
+      const blob = new Blob([bytes], { type: record.excelFile.type })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = record.excelFile.name
+      link.click()
+      window.URL.revokeObjectURL(url)
+      message.success('File downloaded successfully')
+    } catch (error) {
+      message.error('Failed to download file')
+    }
   }
 
 
