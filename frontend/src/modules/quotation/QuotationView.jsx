@@ -124,7 +124,7 @@ export default function QuotationView({ quotation }) {
           <Descriptions.Item label="Description" span={2}>{data.description}</Descriptions.Item>
         </Descriptions>
 
-        <Divider>Line Items</Divider>
+        <Divider>Quotation Items</Divider>
 
         <Table
           columns={columns}

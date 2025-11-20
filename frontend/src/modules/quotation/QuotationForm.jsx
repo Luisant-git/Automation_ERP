@@ -4,6 +4,8 @@ import { PlusOutlined, DeleteOutlined, SaveOutlined, SendOutlined, ArrowLeftOutl
 import { useNavigate, useLocation } from 'react-router-dom'
 import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
+import ReactQuill from 'react-quill'
+import 'react-quill/dist/quill.snow.css'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -25,15 +27,28 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
   const [excelFile, setExcelFile] = useState(null)
   const [customers, setCustomers] = useState([])
   const [materials, setMaterials] = useState([])
+  const [showWorkOrder, setShowWorkOrder] = useState(false)
 
   const gstRate = 18
 
   // Generate base quotation number
-  const generateBaseNumber = () => {
+  const generateBaseNumber = (type = 'project') => {
+    const prefix = type === 'project' ? 'PRJ' : type === 'trade' ? 'TRD' : 'SHF'
     const existing = JSON.parse(localStorage.getItem('quotations') || '[]')
-    const baseNumbers = existing.map(q => parseInt(q.baseNumber?.replace('QUO', '') || '0'))
-    const lastNumber = baseNumbers.length > 0 ? Math.max(...baseNumbers) : 0
-    return `QUO${String(lastNumber + 1).padStart(3, '0')}`
+    const sameType = existing.filter(q => q.baseNumber?.startsWith(prefix))
+    const numbers = sameType.map(q => parseInt(q.baseNumber?.replace(prefix, '') || '0'))
+    const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
+    return `${prefix}${String(lastNumber + 1).padStart(3, '0')}`
+  }
+
+  // Handle quotation type change
+  const handleQuotationTypeChange = (type) => {
+    if (!editData?.id) {
+      const newBase = generateBaseNumber(type)
+      setBaseNumber(newBase)
+      setQuotationNumber(newBase)
+      form.setFieldsValue({ quotationNumber: newBase })
+    }
   }
 
   // Initialize quotation number on component mount
@@ -44,7 +59,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
     setMaterials(savedMaterials)
     
     if (!editData?.quotationNumber) {
-      const newBase = generateBaseNumber()
+      const newBase = generateBaseNumber('project')
       const newVersion = 1
       setBaseNumber(newBase)
       setVersion(newVersion)
@@ -57,6 +72,11 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
       setBaseNumber(base)
       setVersion(ver)
       form.setFieldsValue({ quotationNumber: editData.quotationNumber })
+      
+      // Show work order field if already approved or has work order number
+      if (editData.status === 'Approved' || editData.workOrderNumber) {
+        setShowWorkOrder(true)
+      }
       
       // Load existing line items and excel file
       if (editData.lineItems) {
@@ -103,8 +123,6 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
               ...updated,
               itemName: material.itemName || '',
               category: material.itemCategory || '',
-              description: material.itemName || '',
-              unitPrice: material.sellingRate || 0,
               tax: material.tax || 0
             }
           }
@@ -152,6 +170,12 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
 
   const handleSubmit = async (values) => {
     try {
+      // Validate Work Order Number if status is Approved
+      if (values.status === 'Approved' && !values.workOrderNumber) {
+        message.error('Work Order Number is required before approving quotation')
+        return
+      }
+      
       const existing = JSON.parse(localStorage.getItem('quotations') || '[]')
       
       if (onSubmit) {
@@ -389,7 +413,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
                 name="quotationType"
                 rules={[{ required: true, message: 'Please select type' }]}
               >
-                <Select placeholder="Select Type" disabled={!!editData?.id}>
+                <Select placeholder="Select Type" disabled={!!editData?.id} onChange={handleQuotationTypeChange}>
                   <Option value="project">Project</Option>
                   <Option value="trade">Trade</Option>
                   <Option value="shifting">Shifting</Option>
@@ -436,7 +460,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
                 name="status"
                 initialValue="Draft"
               >
-                <Select>
+                <Select onChange={(value) => setShowWorkOrder(value === 'Approved')}>
                   <Option value="Draft">Draft</Option>
                   <Option value="Sent">Sent</Option>
                   <Option value="Approved">Approved</Option>
@@ -444,6 +468,15 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
                   <Option value="Expired">Expired</Option>
                 </Select>
               </Form.Item>
+              {showWorkOrder && (
+                <Form.Item
+                  label="Work Order Number"
+                  name="workOrderNumber"
+                  rules={[{ required: true, message: 'Work Order Number is required' }]}
+                >
+                  <Input placeholder="Enter work order number" disabled={editData?.workOrderNumber ? true : false} />
+                </Form.Item>
+              )}
               <Form.Item
                 label="Description"
                 name="description"
@@ -454,7 +487,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
             </Col>
           </Row>
 
-          <Divider>Line Items</Divider>
+          <Divider>Quotation Items</Divider>
           
           <Row gutter={16} style={{ marginBottom: '16px' }}>
             <Col span={12}>
@@ -524,6 +557,33 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
                   <span>₹ {totalAmount.toLocaleString()}</span>
                 </div>
               </Card>
+            </Col>
+          </Row>
+
+          <Divider>Terms & Conditions</Divider>
+          
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                label="Terms & Conditions"
+                name="termsAndConditions"
+              >
+                <ReactQuill
+                  theme="snow"
+                  placeholder="Enter terms and conditions"
+                  modules={{
+                    toolbar: [
+                      [{ 'header': [1, 2, 3, false] }],
+                      [{ 'size': ['small', false, 'large', 'huge'] }],
+                      ['bold', 'italic', 'underline'],
+                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                      [{ 'align': [] }],
+                      ['clean']
+                    ]
+                  }}
+                  style={{ height: '200px', marginBottom: '50px' }}
+                />
+              </Form.Item>
             </Col>
           </Row>
 

@@ -184,8 +184,7 @@ const MaterialMaster = () => {
   const columns = [
     { title: 'Item Code', dataIndex: 'itemCode', key: 'itemCode', width: 100 },
     { title: 'Item Name', dataIndex: 'itemName', key: 'itemName', width: 150 },
-    { title: 'Serial Number', dataIndex: 'serialNumber', key: 'serialNumber', width: 120 },
-
+    // { title: 'Serial Number', dataIndex: 'serialNumber', key: 'serialNumber', width: 120 },
     { title: 'HSN Code', dataIndex: 'hsnCode', key: 'hsnCode', width: 100 },
     { title: 'Category', dataIndex: 'itemCategory', key: 'itemCategory', width: 120 },
     { title: 'Brand', dataIndex: 'brand', key: 'brand', width: 120 },
@@ -193,7 +192,7 @@ const MaterialMaster = () => {
     { title: 'Tax %', dataIndex: 'tax', key: 'tax', width: 80 },
     { title: 'Purchase Rate', dataIndex: 'purchaseRate', key: 'purchaseRate', width: 120 },
     { title: 'Selling Rate', dataIndex: 'sellingRate', key: 'sellingRate', width: 120 },
-    { title: 'Quantity', dataIndex: 'quantity', key: 'quantity', width: 100 },
+    // { title: 'Quantity', dataIndex: 'quantity', key: 'quantity', width: 100 },
     { 
       title: 'Status', 
       dataIndex: 'isActive', 
@@ -298,13 +297,6 @@ const MaterialMaster = () => {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="serialNumber" label="Serial Number">
-                <Input placeholder="Enter serial number" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="hsnCode" label="HSN Code">
                 <Input />
@@ -356,22 +348,17 @@ const MaterialMaster = () => {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={6}>
+            <Col span={8}>
               <Form.Item name="purchaseRate" label="Purchase Rate">
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col span={8}>
               <Form.Item name="sellingRate" label="Selling Rate">
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={6}>
-              <Form.Item name="quantity" label="Quantity">
-                <InputNumber min={0} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
+            <Col span={8}>
               <Form.Item name="isActive" label="Status" valuePropName="checked" initialValue={true}>
                 <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
               </Form.Item>

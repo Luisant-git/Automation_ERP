@@ -15,7 +15,7 @@ import {
   Typography,
   Divider
 } from 'antd'
-import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined, ArrowLeftOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined, ArrowLeftOutlined, MinusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 
 const { TextArea } = Input
@@ -26,14 +26,25 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
   const [items, setItems] = useState([])
   const [quotations, setQuotations] = useState([])
   const [materials, setMaterials] = useState([])
+  const [remainingBudget, setRemainingBudget] = useState(0)
+  const [addedItems, setAddedItems] = useState(new Set())
 
   // Generate PO Number
-  const generatePONumber = () => {
+  const generatePONumber = (type = 'project') => {
+    const prefix = type === 'project' ? 'PO-PRJ' : type === 'trade' ? 'PO-TRD' : 'PO-SHF'
     const existing = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-    const lastNumber = existing.length > 0 
-      ? Math.max(...existing.map(po => parseInt(po.poNumber?.replace('PO-', '') || 0))) 
-      : 0
-    return `PO-${String(lastNumber + 1).padStart(3, '0')}`
+    const sameType = existing.filter(po => po.poNumber?.startsWith(prefix))
+    const numbers = sameType.map(po => parseInt(po.poNumber?.replace(prefix, '') || '0'))
+    const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
+    return `${prefix}${String(lastNumber + 1).padStart(3, '0')}`
+  }
+
+  // Handle PO Type change
+  const handlePOTypeChange = (type) => {
+    if (!editingOrder) {
+      const newPONumber = generatePONumber(type)
+      form.setFieldsValue({ poNumber: newPONumber })
+    }
   }
 
   // Load quotations and materials from localStorage
@@ -56,7 +67,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       setItems(editingOrder.items || [])
     } else {
       form.setFieldsValue({
-        poNumber: generatePONumber(),
+        poNumber: generatePONumber('project'),
         poDate: dayjs(),
         poStatus: 1,
         currencyId: 1,
@@ -68,71 +79,72 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
   // Handle quotation selection
   const handleQuotationSelect = (quotationIds) => {
     if (!quotationIds || quotationIds.length === 0) {
-      setItems([])
-      form.setFieldsValue({ poType: undefined })
+      form.setFieldsValue({ poType: undefined, workOrderNumber: '', budgetValue: null })
+      setRemainingBudget(0)
       return
     }
     
     const selectedQuotations = quotations.filter(q => quotationIds.includes(q.id))
-    const allItems = []
     let poType = ''
-    const quotationNumbers = []
+    const workOrderNumbers = []
+    let totalBudget = 0
     
     selectedQuotations.forEach((quotation, qIndex) => {
-      quotationNumbers.push(quotation.quotationNumber)
-      const quotationItems = (quotation.lineItems || []).map((item, index) => {
-        const material = materials.find(m => m.itemCode === item.itemCode)
-        const taxRate = item.tax || material?.tax || 18
-        const taxableAmount = (item.quantity || 1) * (item.unitPrice || 0)
-        const cgstPercentage = taxRate / 2
-        const sgstPercentage = taxRate / 2
-        const cgstAmount = taxableAmount * cgstPercentage / 100
-        const sgstAmount = taxableAmount * sgstPercentage / 100
-        const totalAmount = taxableAmount + cgstAmount + sgstAmount
-        
-        return {
-          key: Date.now() + qIndex * 1000 + index,
-          itemCode: item.itemCode || '',
-          itemName: item.itemName || item.description || '',
-          category: item.category || material?.itemCategory || '',
-          partNumber: '',
-          description: item.description || item.itemName || '',
-          quantity: item.quantity || 1,
-          rate: item.unitPrice || 0,
-          hsnCode: material?.hsnCode || '',
-          unitId: 1,
-          discountPercentage: 0,
-          discountAmount: 0,
-          cgstPercentage: cgstPercentage,
-          sgstPercentage: sgstPercentage,
-          igstPercentage: 0,
-          taxableAmount: taxableAmount,
-          cgstAmount: cgstAmount,
-          sgstAmount: sgstAmount,
-          igstAmount: 0,
-          totalAmount: totalAmount
-        }
-      })
-      allItems.push(...quotationItems)
+      if (quotation.workOrderNumber) {
+        workOrderNumbers.push(quotation.workOrderNumber)
+      }
+      if (quotation.totalAmount) {
+        totalBudget += quotation.totalAmount
+      }
       if (qIndex === 0) poType = quotation.quotationType || 'project'
     })
     
-    setItems(allItems)
     form.setFieldsValue({
       poType: poType,
-      quotationNumberDisplay: quotationNumbers.join(', ')
+      workOrderNumber: workOrderNumbers.join(', '),
+      budgetValue: totalBudget || null
     })
+    setRemainingBudget(totalBudget || 0)
+    updateRemainingBudget(items)
   }
 
   // Item management
   const handleAddItem = () => {
-    const newItem = {
+    const selectedQuotationIds = form.getFieldValue('quotationNumber') || []
+    const selectedQuotations = quotations.filter(q => selectedQuotationIds.includes(q.id))
+    const defaultQuotationNumber = selectedQuotations.length > 0 ? selectedQuotations[0].quotationNumber : ''
+    
+    const lastItem = items.length > 0 ? items[items.length - 1] : null
+    const newItem = lastItem ? {
       key: Date.now(),
+      quotationNumber: lastItem.quotationNumber || defaultQuotationNumber,
+      itemCode: lastItem.itemCode || '',
+      itemName: lastItem.itemName || '',
+      category: lastItem.category || '',
+      partNumber: lastItem.partNumber || '',
+      description: lastItem.description || '',
+      hsnCode: lastItem.hsnCode || '',
+      quantity: 1,
+      unitId: lastItem.unitId || 1,
+      rate: lastItem.rate || 0,
+      discountPercentage: 0,
+      discountAmount: 0,
+      cgstPercentage: lastItem.cgstPercentage || 9,
+      sgstPercentage: lastItem.sgstPercentage || 9,
+      igstPercentage: 0,
+      taxableAmount: lastItem.rate || 0,
+      cgstAmount: ((lastItem.rate || 0) * (lastItem.cgstPercentage || 9)) / 100,
+      sgstAmount: ((lastItem.rate || 0) * (lastItem.sgstPercentage || 9)) / 100,
+      igstAmount: 0,
+      totalAmount: (lastItem.rate || 0) + (((lastItem.rate || 0) * (lastItem.cgstPercentage || 9)) / 100) + (((lastItem.rate || 0) * (lastItem.sgstPercentage || 9)) / 100)
+    } : {
+      key: Date.now(),
+      quotationNumber: defaultQuotationNumber,
       itemId: null,
       description: '',
       hsnCode: '',
       quantity: 1,
-      unitId: null,
+      unitId: 1,
       rate: 0,
       discountPercentage: 0,
       discountAmount: 0,
@@ -145,7 +157,9 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       igstAmount: 0,
       totalAmount: 0
     }
-    setItems([...items, newItem])
+    const updatedItems = [...items, newItem]
+    setItems(updatedItems)
+    updateRemainingBudget(updatedItems)
   }
 
   const updateItem = (key, field, value) => {
@@ -188,10 +202,19 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       return item
     })
     setItems(updatedItems)
+    updateRemainingBudget(updatedItems)
+  }
+
+  const updateRemainingBudget = (currentItems) => {
+    const budgetValue = form.getFieldValue('budgetValue') || 0
+    const totalSpent = currentItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0)
+    setRemainingBudget(budgetValue - totalSpent)
   }
 
   const removeItem = (key) => {
-    setItems(items.filter(item => item.key !== key))
+    const updatedItems = items.filter(item => item.key !== key)
+    setItems(updatedItems)
+    updateRemainingBudget(updatedItems)
   }
 
   // Calculate totals
@@ -208,7 +231,37 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     {
       title: 'Sl. No.',
       width: 60,
-      render: (_, __, index) => index + 1
+      render: (_, record, index) => {
+        const sameQuotationAndItem = items.filter(item => 
+          item.quotationNumber === record.quotationNumber && 
+          item.itemCode === record.itemCode
+        )
+        const itemIndex = sameQuotationAndItem.findIndex(item => item.key === record.key)
+        return itemIndex + 1
+      }
+    },
+    {
+      title: 'Quotation No.',
+      dataIndex: 'quotationNumber',
+      width: 150,
+      render: (text, record) => {
+        const selectedQuotationIds = form.getFieldValue('quotationNumber') || []
+        const selectedQuotations = quotations.filter(q => selectedQuotationIds.includes(q.id))
+        return (
+          <Select
+            value={text}
+            onChange={(value) => updateItem(record.key, 'quotationNumber', value)}
+            style={{ width: '100%' }}
+            placeholder="Select Quotation"
+          >
+            {selectedQuotations.map(q => (
+              <Option key={q.id} value={q.quotationNumber}>
+                {q.quotationNumber}
+              </Option>
+            ))}
+          </Select>
+        )
+      }
     },
     {
       title: 'Item Code',
@@ -219,14 +272,67 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     {
       title: 'Item Name',
       dataIndex: 'itemName',
-      width: 150,
-      render: (text, record) => (
-        <Input
-          value={text}
-          onChange={(e) => updateItem(record.key, 'itemName', e.target.value)}
-          placeholder="Item Name"
-        />
-      )
+      width: 200,
+      render: (text, record) => {
+        const selectedQuotation = quotations.find(q => q.quotationNumber === record.quotationNumber)
+        const lineItems = selectedQuotation?.lineItems || []
+        return (
+          <Select
+            value={text}
+            onChange={(value) => {
+              const selectedItem = lineItems.find(item => item.itemName === value)
+              if (selectedItem) {
+                const material = materials.find(m => m.itemCode === selectedItem.itemCode)
+                const taxRate = selectedItem.tax || material?.tax || 18
+                const taxableAmount = (selectedItem.quantity || 1) * (selectedItem.unitPrice || 0)
+                const cgstPercentage = taxRate / 2
+                const sgstPercentage = taxRate / 2
+                const cgstAmount = taxableAmount * cgstPercentage / 100
+                const sgstAmount = taxableAmount * sgstPercentage / 100
+                const totalAmount = taxableAmount + cgstAmount + sgstAmount
+                
+                const updatedItems = items.map(item => {
+                  if (item.key === record.key) {
+                    return {
+                      ...item,
+                      itemCode: selectedItem.itemCode || '',
+                      itemName: selectedItem.itemName || '',
+                      category: selectedItem.category || material?.itemCategory || '',
+                      description: selectedItem.description || selectedItem.itemName || '',
+                      quantity: selectedItem.quantity || 1,
+                      rate: selectedItem.unitPrice || 0,
+                      hsnCode: material?.hsnCode || '',
+                      cgstPercentage: cgstPercentage,
+                      sgstPercentage: sgstPercentage,
+                      taxableAmount: taxableAmount,
+                      cgstAmount: cgstAmount,
+                      sgstAmount: sgstAmount,
+                      totalAmount: totalAmount
+                    }
+                  }
+                  return item
+                })
+                setItems(updatedItems)
+                updateRemainingBudget(updatedItems)
+              } else {
+                updateItem(record.key, 'itemName', value)
+              }
+            }}
+            style={{ width: '100%' }}
+            placeholder="Select Item"
+            showSearch
+            filterOption={(input, option) => 
+              option.children.toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            {lineItems.map((item, idx) => (
+              <Option key={idx} value={item.itemName}>
+                {item.itemName}
+              </Option>
+            ))}
+          </Select>
+        )
+      }
     },
     {
       title: 'Category',
@@ -313,11 +419,12 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       width: 120,
       render: (text, record) => (
         <InputNumber
-          value={text}
+          value={text || 0}
           onChange={(value) => updateItem(record.key, 'rate', value || 0)}
           min={0}
           precision={2}
           style={{ width: '100%' }}
+          placeholder="0.00"
         />
       )
     },
@@ -426,14 +533,10 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                   </Select>
                 </Form.Item>
                 <Form.Item name="workOrderNumber" label="Work Order Number">
-                  <Input placeholder="Enter work order number" />
+                  <Input placeholder="Auto-filled from quotation" disabled />
                 </Form.Item>
-                <Form.Item name="poType" label="PO Type" rules={[{ required: true }]}>
-                  <Select placeholder="Select PO Type">
-                    <Option value="project">Project</Option>
-                    <Option value="trade">Trade</Option>
-                    <Option value="shift">Shift</Option>
-                  </Select>
+                <Form.Item name="poType" hidden>
+                  <Input />
                 </Form.Item>
               </Col>
               <Col span={12}>
@@ -484,19 +587,67 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
           {/* Items Table */}
           <div style={{ marginTop: '24px' }}>
             <Card size="small" title="Purchase Order Items">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <Typography.Text strong>Items/Services</Typography.Text>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddItem}>
-                  Add Item
-                </Button>
+              <div style={{ marginBottom: '16px' }}>
+                {(() => {
+                  const selectedQuotationIds = form.getFieldValue('quotationNumber') || []
+                  const selectedQuotations = quotations.filter(q => selectedQuotationIds.includes(q.id))
+                  
+                  if (selectedQuotations.length > 0) {
+                    return (
+                      <Table
+                        size="small"
+                        pagination={false}
+                        style={{ marginBottom: '12px' }}
+                        dataSource={selectedQuotations.map(quotation => {
+                          const quotationItems = items.filter(item => item.quotationNumber === quotation.quotationNumber)
+                          const spent = quotationItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0)
+                          const budget = quotation.totalAmount || 0
+                          const remaining = budget - spent
+                          return {
+                            key: quotation.id,
+                            quotationNumber: quotation.quotationNumber,
+                            budget,
+                            spent,
+                            remaining
+                          }
+                        })}
+                        columns={[
+                          { title: 'Quotation', dataIndex: 'quotationNumber', width: 150 },
+                          { title: 'Budget', dataIndex: 'budget', width: 150, render: (val) => `₹${val.toLocaleString()}` },
+                          { title: 'Spent', dataIndex: 'spent', width: 150, render: (val) => `₹${val.toLocaleString()}` },
+                          { 
+                            title: 'Remaining', 
+                            dataIndex: 'remaining', 
+                            width: 150, 
+                            render: (val) => (
+                              <span style={{ color: val < 0 ? '#ff4d4f' : '#52c41a', fontWeight: 'bold' }}>
+                                ₹{val.toLocaleString()}
+                              </span>
+                            )
+                          }
+                        ]}
+                      />
+                    )
+                  }
+                  return null
+                })()}
+                <div style={{ textAlign: 'right' }}>
+                  <Button type="primary" icon={<PlusOutlined />} onClick={handleAddItem}>
+                    Add Item
+                  </Button>
+                </div>
               </div>
               <Table
                 columns={columns}
-                dataSource={items}
+                dataSource={[...items].sort((a, b) => {
+                  if (a.quotationNumber < b.quotationNumber) return -1
+                  if (a.quotationNumber > b.quotationNumber) return 1
+                  return 0
+                })}
                 pagination={false}
                 size="small"
                 bordered
-                scroll={{ x: 1200 }}
+                scroll={{ x: 1800 }}
               />
             </Card>
           </div>
