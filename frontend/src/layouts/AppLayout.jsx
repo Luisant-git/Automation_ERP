@@ -63,8 +63,8 @@ const menuItems = [
     children: [
       { key:'/procurement/purchase-order-master', label:<NavLink to="/procurement/purchase-order-master">Purchase Order Master</NavLink> },
       { key:'/procurement/purchase-order-details', label:<NavLink to="/procurement/purchase-order-details">Purchase Order Details</NavLink> },
-      { key:'/procurement/purchase-return-master', label:<NavLink to="/procurement/purchase-return-master">Purchase Return Master</NavLink> },
-      { key:'/procurement/purchase-return-details', label:<NavLink to="/procurement/purchase-return-details">Purchase Return Details</NavLink> },
+      // { key:'/procurement/purchase-return-master', label:<NavLink to="/procurement/purchase-return-master">Purchase Return Master</NavLink> },
+      // { key:'/procurement/purchase-return-details', label:<NavLink to="/procurement/purchase-return-details">Purchase Return Details</NavLink> },
     ]
   },
   // {
@@ -145,12 +145,14 @@ export default function AppLayout({ onLogout }){
         <div className={styles.headerLeft}>
           <div className={styles.logo}>
             <img src={logo} alt="Logo" style={{ width: '50px', height: '30px', borderRadius: '4px', objectFit: 'cover' }} />
-            <span>Smart Edge Automation</span>
+            <span>Smart Edge Automation   <span>Version - 1</span></span>
           </div>
           <div className={styles.separator}></div>
+         
           
           {/* <div className={styles.appTitle}>Intelligent Order Management</div> */}
         </div>
+        
         {searchVisible && (
           <div className={styles.headerCenter}>
             <Input

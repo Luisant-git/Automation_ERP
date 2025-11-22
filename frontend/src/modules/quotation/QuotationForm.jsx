@@ -34,6 +34,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
   const [customers, setCustomers] = useState([])
   const [materials, setMaterials] = useState([])
   const [showWorkOrder, setShowWorkOrder] = useState(false)
+  const [quotationType, setQuotationType] = useState('project')
 
   const gstRate = 18
 
@@ -49,6 +50,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
 
   // Handle quotation type change
   const handleQuotationTypeChange = (type) => {
+    setQuotationType(type)
     if (!editData?.id) {
       const newBase = generateBaseNumber(type)
       setBaseNumber(newBase)
@@ -191,6 +193,14 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
   }
 
   const handleExcelUpload = (file) => {
+    const allowedTypes = ['.xlsx', '.xls']
+    const fileExtension = '.' + file.name.split('.').pop().toLowerCase()
+    
+    if (!allowedTypes.includes(fileExtension)) {
+      message.error('Only Excel files (.xlsx, .xls) are allowed for costing sheet')
+      return false
+    }
+    
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
@@ -581,7 +591,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
               <Form.Item
                 label="Project Name"
                 name="projectName"
-                rules={[{ required: true, message: 'Please enter project name' }]}
+                rules={quotationType === 'trade' ? [] : [{ required: true, message: 'Please enter project name' }]}
               >
                 <Input placeholder="Project name" disabled={!!editData?.id} />
               </Form.Item>
@@ -610,7 +620,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
               <Form.Item
                 label="Description"
                 name="description"
-                rules={[{ required: true, message: 'Please enter description' }]}
+                rules={quotationType === 'trade' ? [] : [{ required: true, message: 'Please enter description' }]}
               >
                 <TextArea rows={3} placeholder="Quotation description" disabled={!!editData?.id} />
               </Form.Item>
@@ -647,7 +657,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
               ) : (
                 <Upload
                   beforeUpload={handleExcelUpload}
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                   showUploadList={false}
                 >
                   <Button

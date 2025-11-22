@@ -628,11 +628,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
               </div>
               <Table
                 columns={columns}
-                dataSource={[...items].sort((a, b) => {
-                  if (a.quotationNumber < b.quotationNumber) return -1
-                  if (a.quotationNumber > b.quotationNumber) return 1
-                  return 0
-                })}
+                dataSource={items}
                 pagination={false}
                 size="small"
                 bordered

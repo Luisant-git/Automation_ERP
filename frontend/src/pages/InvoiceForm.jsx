@@ -47,17 +47,16 @@ export default function InvoiceForm() {
     return `INV-${String(lastNumber + 1).padStart(4, '0')}`
   }
 
-  const handleQuotationChange = (quotationId) => {
-    const quotation = quotations.find(q => q.id === quotationId)
+  const handleWorkOrderChange = (workOrderNumber) => {
+    const quotation = quotations.find(q => q.workOrderNumber === workOrderNumber)
     if (quotation) {
       setSelectedQuotation(quotation)
       
       const customer = customers.find(c => c.id === quotation.customerId)
       
       form.setFieldsValue({
+        quotationNumber: quotation.quotationNumber,
         customerName: customer?.name || customer?.customerName || 'Unknown Customer',
-        workOrderNumber: quotation.workOrderNumber,
-        invoiceNumber: isEdit ? form.getFieldValue('invoiceNumber') : generateInvoiceNumber(),
         invoiceDate: dayjs(),
         projectName: quotation.projectName,
         totalAmount: quotation.totalAmount || quotation.gstDetails?.totalAmount || 0
@@ -168,23 +167,30 @@ export default function InvoiceForm() {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                label="Quotation Number"
-                name="quotationNumber"
-                rules={[{ required: true, message: 'Please select quotation' }]}
+                label="Work Order Number"
+                name="workOrderNumber"
+                rules={[{ required: true, message: 'Please select work order' }]}
               >
                 <Select
-                  placeholder="Select quotation"
-                  onChange={handleQuotationChange}
+                  placeholder="Select work order"
+                  onChange={handleWorkOrderChange}
                   showSearch
                   optionFilterProp="children"
                   disabled={isEdit}
                 >
                   {quotations.map(quotation => (
-                    <Option key={quotation.id} value={quotation.id}>
-                      {quotation.quotationNumber} - {quotation.projectName}
+                    <Option key={quotation.id} value={quotation.workOrderNumber}>
+                      {quotation.workOrderNumber} - {quotation.projectName}
                     </Option>
                   ))}
                 </Select>
+              </Form.Item>
+              
+              <Form.Item
+                label="Quotation Number"
+                name="quotationNumber"
+              >
+                <Input disabled />
               </Form.Item>
               
               <Form.Item
@@ -195,8 +201,8 @@ export default function InvoiceForm() {
               </Form.Item>
               
               <Form.Item
-                label="Work Order Number"
-                name="workOrderNumber"
+                label="Project Name"
+                name="projectName"
               >
                 <Input disabled />
               </Form.Item>
@@ -204,8 +210,9 @@ export default function InvoiceForm() {
               <Form.Item
                 label="Invoice Number"
                 name="invoiceNumber"
+                rules={[{ required: true, message: 'Please enter invoice number' }]}
               >
-                <Input disabled />
+                <Input placeholder="Enter invoice number" />
               </Form.Item>
               
               <Form.Item
@@ -217,17 +224,11 @@ export default function InvoiceForm() {
               </Form.Item>
               
               <Form.Item
-                label="Project Name"
-                name="projectName"
-              >
-                <Input disabled />
-              </Form.Item>
-              
-              <Form.Item
                 label="Total Amount"
                 name="totalAmount"
+                rules={[{ required: true, message: 'Please enter total amount' }]}
               >
-                <Input disabled prefix="₹" />
+                <Input prefix="₹" placeholder="Enter total amount" type="number" />
               </Form.Item>
             </Col>
             
