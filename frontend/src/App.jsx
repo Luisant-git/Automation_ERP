@@ -28,8 +28,11 @@ import CreateServiceAssignment from './modules/project/service/CreateServiceAssi
 
 import SalesOrderForm from './modules/project/invoice/SalesInvoiceForm'
 import SalesReturns from './modules/sales/returns/SalesReturns'
+import InvoiceList from './pages/InvoiceList'
+import InvoiceForm from './pages/InvoiceForm'
 import { QuotationForm, QuotationList } from './modules/quotation'
 import NotFound from './pages/NotFound'
+import { migrateDataWithStates } from './services/dataUtils'
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
@@ -42,6 +45,9 @@ export default function App() {
   useEffect(() => {
     const auth = localStorage.getItem('isAuthenticated')
     setIsAuthenticated(auth === 'true')
+    
+    // Initialize data migration for GST calculations
+    migrateDataWithStates()
   }, [])
 
   const handleLogin = () => {
@@ -86,6 +92,9 @@ export default function App() {
           <Route path="operations/service-assign" element={<ServiceAssignment />} />
           <Route path="operations/service-assign/create" element={<CreateServiceAssignment />} />
           <Route path="operations/service-status" element={<ServiceStatus />} />
+          <Route path="sales/invoice" element={<InvoiceList />} />
+          <Route path="sales/invoice/create" element={<InvoiceForm />} />
+          <Route path="sales/invoice/edit" element={<InvoiceForm />} />
           <Route path="sales/orders" element={<SalesOrderForm />} />
           <Route path="sales/returns" element={<SalesReturns />} />
           <Route path="quotations" element={<QuotationList />} />

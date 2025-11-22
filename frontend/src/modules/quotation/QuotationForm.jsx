@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
+import { calculateGST, INDIAN_STATES } from '../../services/gstCalculator'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -19,8 +20,13 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
   const editData = location.state?.quotation || initialValues
   const [lineItems, setLineItems] = useState([])
   const [subtotal, setSubtotal] = useState(0)
-  const [gstAmount, setGstAmount] = useState(0)
+  const [totalDiscount, setTotalDiscount] = useState(0)
+  const [gstDetails, setGstDetails] = useState({ cgst: 0, sgst: 0, igst: 0, totalGst: 0, isIntraState: true })
   const [totalAmount, setTotalAmount] = useState(0)
+  const [companyState, setCompanyState] = useState('Maharashtra')
+  const [companyStateCode, setCompanyStateCode] = useState('27')
+  const [customerState, setCustomerState] = useState('')
+  const [customerStateCode, setCustomerStateCode] = useState('')
   const [quotationNumber, setQuotationNumber] = useState('')
   const [baseNumber, setBaseNumber] = useState('')
   const [version, setVersion] = useState(1)
@@ -58,6 +64,21 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
     const savedMaterials = JSON.parse(localStorage.getItem('materials') || '[]')
     setMaterials(savedMaterials)
     
+    // Load company state from settings or default
+    const companySettings = JSON.parse(localStorage.getItem('companySettings') || '{}')
+    const defaultCompanyState = 'Karnataka'
+    const defaultCompanyStateCode = '29'
+    setCompanyState(companySettings.state || defaultCompanyState)
+    setCompanyStateCode(companySettings.stateCode || defaultCompanyStateCode)
+    
+    // Save default company settings if not exists
+    if (!companySettings.state) {
+      localStorage.setItem('companySettings', JSON.stringify({
+        state: defaultCompanyState,
+        stateCode: defaultCompanyStateCode
+      }))
+    }
+    
     if (!editData?.quotationNumber) {
       const newBase = generateBaseNumber('project')
       const newVersion = 1
@@ -81,7 +102,13 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
       // Load existing line items and excel file
       if (editData.lineItems) {
         setLineItems(editData.lineItems)
-        calculateTotals(editData.lineItems)
+        // Get customer state for calculation
+        const customer = savedCustomers.find(c => c.id === editData.customerId)
+        const custState = customer?.billingAddress?.state || ''
+        const custStateCode = customer?.billingAddress?.stateCode || ''
+        setCustomerState(custState)
+        setCustomerStateCode(custStateCode)
+        calculateTotals(editData.lineItems, custStateCode)
       }
       if (editData.excelFile) {
         setExcelFile(editData.excelFile)
@@ -95,9 +122,12 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
       itemCode: '',
       itemName: '',
       category: '',
-      description: '',
+
+      description1: '',
+      description2: '',
       quantity: 1,
       unitPrice: 0,
+      discount: 0,
       tax: 0,
       amount: 0
     }
@@ -128,8 +158,10 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
           }
         }
         
-        if (field === 'quantity' || field === 'unitPrice' || field === 'itemCode') {
-          updated.amount = updated.quantity * updated.unitPrice
+        if (field === 'quantity' || field === 'unitPrice' || field === 'discount' || field === 'itemCode') {
+          const baseAmount = updated.quantity * updated.unitPrice
+          const discountAmount = (baseAmount * (updated.discount || 0)) / 100
+          updated.amount = baseAmount - discountAmount
         }
         return updated
       }
@@ -139,14 +171,23 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
     calculateTotals(updatedItems)
   }
 
-  const calculateTotals = (items) => {
+  const calculateTotals = (items, custStateCode = customerStateCode) => {
     const sub = items.reduce((sum, item) => sum + (item.amount || 0), 0)
-    const gst = (sub * gstRate) / 100
-    const total = sub + gst
+    const discount = items.reduce((sum, item) => {
+      const baseAmount = (item.quantity || 0) * (item.unitPrice || 0)
+      const discountAmount = (baseAmount * (item.discount || 0)) / 100
+      return sum + discountAmount
+    }, 0)
+    
+    console.log('Company State Code:', companyStateCode, 'Customer State Code:', custStateCode, 'Subtotal:', sub)
+    console.log('Is Same State?', companyStateCode === custStateCode)
+    const gstCalc = calculateGST(companyStateCode, custStateCode, gstRate, sub)
+    console.log('GST Calculation:', gstCalc)
     
     setSubtotal(sub)
-    setGstAmount(gst)
-    setTotalAmount(total)
+    setTotalDiscount(discount)
+    setGstDetails(gstCalc)
+    setTotalAmount(gstCalc.totalAmount)
   }
 
   const handleExcelUpload = (file) => {
@@ -183,7 +224,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
           ...values,
           lineItems,
           subtotal,
-          gstAmount,
+          gstDetails,
           totalAmount,
           quotationNumber: quotationNumber,
           baseNumber: baseNumber,
@@ -205,7 +246,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
             ...values,
             lineItems,
             subtotal,
-            gstAmount,
+            gstDetails,
             totalAmount,
             quotationNumber: quotationNumber,
             baseNumber: baseNumber,
@@ -232,7 +273,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
             ...values,
             lineItems,
             subtotal,
-            gstAmount,
+            gstDetails,
             totalAmount,
             quotationNumber: newQuotationNumber,
             baseNumber: editData.baseNumber,
@@ -254,7 +295,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
           ...values,
           lineItems,
           subtotal,
-          gstAmount,
+          gstDetails,
           totalAmount,
           quotationNumber: baseNumber,
           baseNumber: baseNumber,
@@ -283,13 +324,10 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
         <Select
           value={text}
           onChange={(value) => updateLineItem(record.key, 'itemCode', value)}
-          placeholder="Select Item"
+          placeholder="Select or type"
           showSearch
-          filterOption={(input, option) => {
-            const searchText = input.toLowerCase()
-            const optionText = option.children.toLowerCase()
-            return optionText.includes(searchText)
-          }}
+          mode="combobox"
+          filterOption={false}
           style={{ width: '100%' }}
           allowClear
         >
@@ -305,13 +343,58 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
       title: 'Item Name',
       dataIndex: 'itemName',
       width: 150,
-      render: (text) => text || '-'
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateLineItem(record.key, 'itemName', e.target.value)}
+          placeholder="Enter item name"
+          style={{ width: '100%' }}
+        />
+      )
     },
     {
       title: 'Category',
       dataIndex: 'category',
       width: 120,
-      render: (text) => text || '-'
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateLineItem(record.key, 'category', e.target.value)}
+          placeholder="Enter category"
+          style={{ width: '100%' }}
+        />
+      )
+    },
+
+    {
+      title: 'Description 1',
+      dataIndex: 'description1',
+      width: 150,
+      render: (text, record) => (
+        <Input.TextArea
+          value={text}
+          onChange={(e) => updateLineItem(record.key, 'description1', e.target.value)}
+          placeholder="Description 1"
+          rows={2}
+          autoSize={{ minRows: 2, maxRows: 4 }}
+          style={{ width: '100%', resize: 'vertical' }}
+        />
+      )
+    },
+    {
+      title: 'Description 2',
+      dataIndex: 'description2',
+      width: 150,
+      render: (text, record) => (
+        <Input.TextArea
+          value={text}
+          onChange={(e) => updateLineItem(record.key, 'description2', e.target.value)}
+          placeholder="Description 2"
+          rows={2}
+          autoSize={{ minRows: 2, maxRows: 4 }}
+          style={{ width: '100%', resize: 'vertical' }}
+        />
+      )
     },
     {
       title: 'Quantity',
@@ -342,10 +425,36 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
       )
     },
     {
+      title: 'Discount %',
+      dataIndex: 'discount',
+      width: 100,
+      render: (text, record) => (
+        <InputNumber
+          value={text}
+          onChange={(value) => updateLineItem(record.key, 'discount', value)}
+          min={0}
+          max={100}
+          formatter={value => `${value}%`}
+          parser={value => value.replace('%', '')}
+          style={{ width: '100%' }}
+        />
+      )
+    },
+    {
       title: 'Tax %',
       dataIndex: 'tax',
       width: 80,
-      render: (text) => `${text || 0}%`
+      render: (text, record) => (
+        <InputNumber
+          value={text}
+          onChange={(value) => updateLineItem(record.key, 'tax', value)}
+          min={0}
+          max={100}
+          formatter={value => `${value}%`}
+          parser={value => value.replace('%', '')}
+          style={{ width: '100%' }}
+        />
+      )
     },
     {
       title: 'Amount',
@@ -355,14 +464,22 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
     },
     {
       title: 'Action',
-      width: 80,
+      width: 100,
       render: (_, record) => (
-        <Button
-          type="text"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => removeLineItem(record.key)}
-        />
+        <Space>
+          <Button
+            type="text"
+            icon={<PlusOutlined />}
+            onClick={addLineItem}
+            style={{ color: '#000000' }}
+          />
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => removeLineItem(record.key)}
+          />
+        </Space>
       )
     }
   ]
@@ -440,10 +557,23 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
                 name="customerId"
                 rules={[{ required: true, message: 'Please select customer' }]}
               >
-                <Select placeholder="Select customer" showSearch optionFilterProp="children" disabled={!!editData?.id}>
+                <Select 
+                  placeholder="Select customer" 
+                  showSearch 
+                  optionFilterProp="children" 
+                  disabled={!!editData?.id}
+                  onChange={(value) => {
+                    const customer = customers.find(c => c.id === value)
+                    const custState = customer?.billingAddress?.state || ''
+                    const custStateCode = customer?.billingAddress?.stateCode || ''
+                    setCustomerState(custState)
+                    setCustomerStateCode(custStateCode)
+                    calculateTotals(lineItems, custStateCode)
+                  }}
+                >
                   {customers.map(customer => (
                     <Option key={customer.id} value={customer.id}>
-                      {customer.name || customer.customerName}
+                      {customer.name || customer.customerName} - {customer.billingAddress?.state || 'No State'}
                     </Option>
                   ))}
                 </Select>
@@ -497,7 +627,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
                 icon={<PlusOutlined />}
                 style={{ width: '100%' }}
               >
-                Add Line Item
+                Add Item
               </Button>
             </Col>
             <Col span={12}>
@@ -537,6 +667,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
             dataSource={lineItems}
             pagination={false}
             size="small"
+            scroll={{ x: 1400, y: 400 }}
             style={{ marginBottom: '24px' }}
           />
 
@@ -547,10 +678,29 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
                   <span>Subtotal:</span>
                   <span>₹ {subtotal.toLocaleString()}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span>GST ({gstRate}%):</span>
-                  <span>₹ {gstAmount.toLocaleString()}</span>
-                </div>
+                {totalDiscount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#52c41a' }}>
+                    <span>Total Discount:</span>
+                    <span>- ₹ {totalDiscount.toLocaleString()}</span>
+                  </div>
+                )}
+                {gstDetails.isIntraState ? (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span>CGST ({gstRate/2}%):</span>
+                      <span>₹ {gstDetails.cgst.toLocaleString()}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span>SGST ({gstRate/2}%):</span>
+                      <span>₹ {gstDetails.sgst.toLocaleString()}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span>IGST ({gstRate}%):</span>
+                    <span>₹ {gstDetails.igst.toLocaleString()}</span>
+                  </div>
+                )}
                 <Divider style={{ margin: '8px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '16px' }}>
                   <span>Total Amount:</span>

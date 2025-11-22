@@ -17,6 +17,7 @@ import {
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, PrinterOutlined, EditOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { calculateGST, INDIAN_STATES } from '../../../services/gstCalculator'
 
 const { TextArea } = Input
 const { Title } = Typography
@@ -35,6 +36,9 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
     totalDiscountAmount: 0,
     grossAmount: 0
   })
+  const [companyState, setCompanyState] = useState('Maharashtra')
+  const [supplierState, setSupplierState] = useState('')
+  const [suppliers, setSuppliers] = useState([])
   
   // Auto-generate PO Number
   const generatePONumber = () => {
@@ -56,6 +60,12 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
   
   // Initialize form with data
   useEffect(() => {
+    // Load suppliers and company settings
+    const savedSuppliers = JSON.parse(localStorage.getItem('suppliers') || '[]')
+    setSuppliers(savedSuppliers)
+    const companySettings = JSON.parse(localStorage.getItem('companySettings') || '{}')
+    setCompanyState(companySettings.state || 'Maharashtra')
+    
     if (editingOrder) {
       form.setFieldsValue({
         ...editingOrder,
@@ -63,6 +73,10 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
         deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null
       })
       setItems(editingOrder.items || [])
+      
+      // Set supplier state for existing order
+      const supplier = savedSuppliers.find(s => s.id === editingOrder.supplierId)
+      setSupplierState(supplier?.state || '')
     } else {
       form.setFieldsValue({
         poNumber: generatePONumber(),
@@ -90,19 +104,17 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
 
   const handleItemSubmit = (values) => {
     const taxableAmount = (values.quantity * values.rate) - (values.discountAmount || 0)
-    const cgstAmount = taxableAmount * (values.cgstPercentage || 0) / 100
-    const sgstAmount = taxableAmount * (values.sgstPercentage || 0) / 100
-    const igstAmount = taxableAmount * (values.igstPercentage || 0) / 100
-    const totalAmount = taxableAmount + cgstAmount + sgstAmount + igstAmount
-
+    const gstRate = (values.cgstPercentage || 0) + (values.sgstPercentage || 0) + (values.igstPercentage || 0)
+    const gstCalc = calculateGST(companyState, supplierState, gstRate, taxableAmount)
+    
     const newItem = {
       ...values,
       key: editingItem ? editingItem.key : Date.now(),
       taxableAmount,
-      cgstAmount,
-      sgstAmount,
-      igstAmount,
-      totalAmount
+      cgstAmount: gstCalc.cgst,
+      sgstAmount: gstCalc.sgst,
+      igstAmount: gstCalc.igst,
+      totalAmount: gstCalc.totalAmount
     }
 
     if (editingItem) {
@@ -212,6 +224,12 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
       width: 120,
       render: (_, record) => {
         const gst = (record.cgstAmount || 0) + (record.sgstAmount || 0) + (record.igstAmount || 0)
+        const isIntraState = companyState?.toLowerCase() === supplierState?.toLowerCase()
+        if (isIntraState && record.cgstAmount > 0) {
+          return `C:₹${record.cgstAmount.toFixed(2)} S:₹${record.sgstAmount.toFixed(2)}`
+        } else if (record.igstAmount > 0) {
+          return `I:₹${record.igstAmount.toFixed(2)}`
+        }
         return `₹${gst.toFixed(2)}`
       }
     },
@@ -314,9 +332,18 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
             <Row gutter={16}>
               <Col span={6}>
                 <Form.Item name="supplierId" label="Supplier" rules={[{ required: true }]}>
-                  <Select placeholder="Select Supplier">
-                    <Option value={1}>Supplier 1</Option>
-                    <Option value={2}>Supplier 2</Option>
+                  <Select 
+                    placeholder="Select Supplier"
+                    onChange={(value) => {
+                      const supplier = suppliers.find(s => s.id === value)
+                      setSupplierState(supplier?.state || '')
+                    }}
+                  >
+                    {suppliers.map(supplier => (
+                      <Option key={supplier.id} value={supplier.id}>
+                        {supplier.name || supplier.supplierName} - {supplier.state}
+                      </Option>
+                    ))}
                   </Select>
                 </Form.Item>
               </Col>

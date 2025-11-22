@@ -110,39 +110,16 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
 
   // Item management
   const handleAddItem = () => {
-    const selectedQuotationIds = form.getFieldValue('quotationNumber') || []
-    const selectedQuotations = quotations.filter(q => selectedQuotationIds.includes(q.id))
-    const defaultQuotationNumber = selectedQuotations.length > 0 ? selectedQuotations[0].quotationNumber : ''
-    
-    const lastItem = items.length > 0 ? items[items.length - 1] : null
-    const newItem = lastItem ? {
+    const newItem = {
       key: Date.now(),
-      quotationNumber: lastItem.quotationNumber || defaultQuotationNumber,
-      itemCode: lastItem.itemCode || '',
-      itemName: lastItem.itemName || '',
-      category: lastItem.category || '',
-      partNumber: lastItem.partNumber || '',
-      description: lastItem.description || '',
-      hsnCode: lastItem.hsnCode || '',
-      quantity: 1,
-      unitId: lastItem.unitId || 1,
-      rate: lastItem.rate || 0,
-      discountPercentage: 0,
-      discountAmount: 0,
-      cgstPercentage: lastItem.cgstPercentage || 9,
-      sgstPercentage: lastItem.sgstPercentage || 9,
-      igstPercentage: 0,
-      taxableAmount: lastItem.rate || 0,
-      cgstAmount: ((lastItem.rate || 0) * (lastItem.cgstPercentage || 9)) / 100,
-      sgstAmount: ((lastItem.rate || 0) * (lastItem.sgstPercentage || 9)) / 100,
-      igstAmount: 0,
-      totalAmount: (lastItem.rate || 0) + (((lastItem.rate || 0) * (lastItem.cgstPercentage || 9)) / 100) + (((lastItem.rate || 0) * (lastItem.sgstPercentage || 9)) / 100)
-    } : {
-      key: Date.now(),
-      quotationNumber: defaultQuotationNumber,
-      itemId: null,
+      quotationNumber: '',
+      itemCode: '',
+      itemName: '',
+      category: '',
+      partNumber: '',
       description: '',
       hsnCode: '',
+      serialNumber: '',
       quantity: 1,
       unitId: 1,
       rate: 0,
@@ -157,7 +134,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       igstAmount: 0,
       totalAmount: 0
     }
-    const updatedItems = [...items, newItem]
+    const updatedItems = [newItem, ...items]
     setItems(updatedItems)
     updateRemainingBudget(updatedItems)
   }
@@ -347,18 +324,6 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       )
     },
     {
-      title: 'Part Number (P/N)',
-      dataIndex: 'partNumber',
-      width: 120,
-      render: (text, record) => (
-        <Input
-          value={text}
-          onChange={(e) => updateItem(record.key, 'partNumber', e.target.value)}
-          placeholder="P/N"
-        />
-      )
-    },
-    {
       title: 'Description',
       dataIndex: 'description',
       width: 200,
@@ -379,6 +344,30 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
           value={text}
           onChange={(e) => updateItem(record.key, 'hsnCode', e.target.value)}
           placeholder="HSN/SAC"
+        />
+      )
+    },
+    {
+      title: 'Part Number',
+      dataIndex: 'partNumber',
+      width: 120,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.key, 'partNumber', e.target.value)}
+          placeholder="P/N"
+        />
+      )
+    },
+    {
+      title: 'Serial Number',
+      dataIndex: 'serialNumber',
+      width: 120,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.key, 'serialNumber', e.target.value)}
+          placeholder="Serial Number"
         />
       )
     },

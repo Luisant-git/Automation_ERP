@@ -26,6 +26,7 @@ export default function ERPMasterLayout({
       case 'project': return 'Add New Project'
       case 'service': return 'Assign Service'
       case 'quotation': return 'Create Quotation'
+      case 'invoice': return 'Add Invoice'
       default: return 'Add New'
     }
   }

@@ -254,8 +254,8 @@ const CustomerMaster = () => {
               </Form.Item>
             </Col>
             <Col span={4}>
-              <Form.Item name={['billingAddress', 'stateCode']} label="State Code">
-                <Input disabled />
+              <Form.Item name={['billingAddress', 'stateCode']} label="State Code" rules={[{ required: true, message: 'Enter state code' }]}>
+                <Input placeholder="e.g., 27" />
               </Form.Item>
             </Col>
             <Col span={4}>
@@ -327,8 +327,9 @@ const CustomerMaster = () => {
                           {...restField}
                           name={[name, 'stateCode']}
                           label="State Code"
+                          rules={[{ required: true, message: 'Enter state code' }]}
                         >
-                          <Input disabled />
+                          <Input placeholder="e.g., 27" />
                         </Form.Item>
                       </Col>
                       <Col span={4}>

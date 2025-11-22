@@ -18,6 +18,7 @@ import {
 import { PlusOutlined, DeleteOutlined, PrinterOutlined, SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import ERPMasterLayout from '../../../components/ERPMasterLayout'
+import { calculateGST, INDIAN_STATES } from '../../../services/gstCalculator'
 
 const { TextArea } = Input
 const { Title, Text } = Typography
@@ -144,21 +145,26 @@ const SalesOrderForm = ({ onOrderSaved }) => {
     }))
   }
 
-  // Calculate totals
+  // Calculate totals with GST
   useEffect(() => {
     const subtotal = items.reduce((sum, item) => sum + (item.amount || 0), 0)
     const totalQuantity = items.reduce((sum, item) => sum + (item.qty || 0), 0)
     
-    const buyerGSTIN = form.getFieldValue('buyerGSTIN')
-    const isInterState = buyerGSTIN && !buyerGSTIN.startsWith('29')
+    const supplierState = form.getFieldValue('supplierState')
+    const buyerState = form.getFieldValue('buyerState')
+    const gstRate = 18
     
-    const sgst = isInterState ? 0 : subtotal * 0.09
-    const cgst = isInterState ? 0 : subtotal * 0.09
-    const igst = isInterState ? subtotal * 0.18 : 0
-    const totalTax = sgst + cgst + igst
-    const grandTotal = subtotal + totalTax
-
-    setTotals({ subtotal, totalQuantity, sgst, cgst, igst, totalTax, grandTotal })
+    const gstResult = calculateGST(supplierState, buyerState, gstRate, subtotal)
+    
+    setTotals({
+      subtotal,
+      totalQuantity,
+      sgst: gstResult.sgst,
+      cgst: gstResult.cgst,
+      igst: gstResult.igst,
+      totalTax: gstResult.totalGst,
+      grandTotal: gstResult.totalAmount
+    })
   }, [items, form])
 
   // Number to words
@@ -512,7 +518,11 @@ const SalesOrderForm = ({ onOrderSaved }) => {
                 <Row gutter={16}>
                   <Col span={12}>
                     <Form.Item name="consigneeState" label="State">
-                      <Input placeholder="State" />
+                      <Select placeholder="Select State" showSearch>
+                        {INDIAN_STATES.map(state => (
+                          <Option key={state} value={state}>{state}</Option>
+                        ))}
+                      </Select>
                     </Form.Item>
                   </Col>
                   <Col span={12}>
@@ -536,8 +546,12 @@ const SalesOrderForm = ({ onOrderSaved }) => {
                 </Form.Item>
                 <Row gutter={16}>
                   <Col span={12}>
-                    <Form.Item name="buyerState" label="State">
-                      <Input placeholder="State" />
+                    <Form.Item name="buyerState" label="State" rules={[{ required: true }]}>
+                      <Select placeholder="Select State" showSearch onChange={() => form.submit()}>
+                        {INDIAN_STATES.map(state => (
+                          <Option key={state} value={state}>{state}</Option>
+                        ))}
+                      </Select>
                     </Form.Item>
                   </Col>
                   <Col span={12}>

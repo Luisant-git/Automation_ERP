@@ -40,22 +40,22 @@ const menuItems = [
       { key:'/quotations', label:<NavLink to="/quotations">Quotations</NavLink> },
       // { key:'/operations/work-orders', label:<NavLink to="/operations/work-orders">Work Orders</NavLink> },
       // { key:'/operations/scheduling', label:<NavLink to="/operations/scheduling">Scheduling</NavLink> },
-      { type:'group', label:'Service Management' },
-      { key:'/operations/service-assign', label:<NavLink to="/operations/service-assign">Service Assignment</NavLink> },
-      { key:'/operations/service-status', label:<NavLink to="/operations/service-status">Service Status</NavLink> },
+      // { type:'group', label:'Service Management' },
+      // { key:'/operations/service-assign', label:<NavLink to="/operations/service-assign">Service Assignment</NavLink> },
+      // { key:'/operations/service-status', label:<NavLink to="/operations/service-status">Service Status</NavLink> },
     ]
   },
-  {
-    key: '/projects',
-    icon: <AppstoreOutlined/>,
-    label: 'Project Management',
-    children: [
-      { key:'/projects/create', label:<NavLink to="/projects/create">Create Project</NavLink> },
-      { key:'/projects/list', label:<NavLink to="/projects/list">Project List</NavLink> },
-      { key:'/projects/planning', label:<NavLink to="/projects/planning">Project Assignment</NavLink> },
-      { key:'/projects/tracking', label:<NavLink to="/projects/tracking">Project Tracking</NavLink> },
-    ]
-  },
+  // {
+  //   key: '/projects',
+  //   icon: <AppstoreOutlined/>,
+  //   label: 'Project Management',
+  //   children: [
+  //     { key:'/projects/create', label:<NavLink to="/projects/create">Create Project</NavLink> },
+  //     { key:'/projects/list', label:<NavLink to="/projects/list">Project List</NavLink> },
+  //     { key:'/projects/planning', label:<NavLink to="/projects/planning">Project Assignment</NavLink> },
+  //     { key:'/projects/tracking', label:<NavLink to="/projects/tracking">Project Tracking</NavLink> },
+  //   ]
+  // },
   {
     key: '/procurement',
     icon: <ShoppingCartOutlined/>,
@@ -67,48 +67,46 @@ const menuItems = [
       { key:'/procurement/purchase-return-details', label:<NavLink to="/procurement/purchase-return-details">Purchase Return Details</NavLink> },
     ]
   },
-  {
-    key:'/inventory',
-    icon:<InboxOutlined/>,
-    label:'Inventory',
-    children:[
-      { key:'/inventory/stock', label:<NavLink to="/inventory/stock">Stock Management</NavLink> },
-      { key:'/inventory/movements', label:<NavLink to="/inventory/movements">Stock Movements</NavLink> },
-      { key:'/inventory/relocation', label:<NavLink to="/inventory/relocation">Relocation</NavLink> },
-    ]
-  },
+  // {
+  //   key:'/inventory',
+  //   icon:<InboxOutlined/>,
+  //   label:'Inventory',
+  //   children:[
+  //     { key:'/inventory/stock', label:<NavLink to="/inventory/stock">Stock Management</NavLink> },
+  //     { key:'/inventory/movements', label:<NavLink to="/inventory/movements">Stock Movements</NavLink> },
+  //     { key:'/inventory/relocation', label:<NavLink to="/inventory/relocation">Relocation</NavLink> },
+  //   ]
+  // },
   {
     key:'/sales',
     icon:<SwapOutlined/>,
     label:'Sales & Trading',
     children:[
-      { key:'/sales/orders', label:<NavLink to="/sales/orders">Sales Invoice</NavLink> },
-      { key:'/sales/returns', label:<NavLink to="/sales/returns">Sales Returns</NavLink> },
-
+      { key:'/sales/invoice', label:<NavLink to="/sales/invoice">Invoice</NavLink> },
     ]
   },
-  {
-    key:'/reports',
-    icon:<BarChartOutlined/>,
-    label:'Reports & Analytics',
-    children:[
-      { key:'/reports/project', label:<NavLink to="/reports/project">Project Reports</NavLink> },
-      { key:'/reports/service', label:<NavLink to="/reports/service">Service Reports</NavLink> },
-      { key:'/reports/purchase', label:<NavLink to="/reports/purchase">Purchase Reports</NavLink> },
-      { key:'/reports/sales', label:<NavLink to="/reports/sales">Sales Reports</NavLink> },
-      { key:'/reports/stock', label:<NavLink to="/reports/stock">Stock Reports</NavLink> },
-    ]
-  },
-  {
-    key:'/settings',
-    icon:<SettingOutlined/>,
-    label:'System Settings',
-    children:[
-      { key:'/settings/users', label:<NavLink to="/settings/users">User Management</NavLink> },
-      { key:'/settings/permissions', label:<NavLink to="/settings/permissions">Permissions</NavLink> },
-      { key:'/settings/configuration', label:<NavLink to="/settings/configuration">Configuration</NavLink> },
-    ]
-  }
+  // {
+  //   key:'/reports',
+  //   icon:<BarChartOutlined/>,
+  //   label:'Reports & Analytics',
+  //   children:[
+  //     { key:'/reports/project', label:<NavLink to="/reports/project">Project Reports</NavLink> },
+  //     { key:'/reports/service', label:<NavLink to="/reports/service">Service Reports</NavLink> },
+  //     { key:'/reports/purchase', label:<NavLink to="/reports/purchase">Purchase Reports</NavLink> },
+  //     { key:'/reports/sales', label:<NavLink to="/reports/sales">Sales Reports</NavLink> },
+  //     { key:'/reports/stock', label:<NavLink to="/reports/stock">Stock Reports</NavLink> },
+  //   ]
+  // },
+  // {
+  //   key:'/settings',
+  //   icon:<SettingOutlined/>,
+  //   label:'System Settings',
+  //   children:[
+  //     { key:'/settings/users', label:<NavLink to="/settings/users">User Management</NavLink> },
+  //     { key:'/settings/permissions', label:<NavLink to="/settings/permissions">Permissions</NavLink> },
+  //     { key:'/settings/configuration', label:<NavLink to="/settings/configuration">Configuration</NavLink> },
+  //   ]
+  // }
 ]
 
 function buildOpenKeys(pathname){
