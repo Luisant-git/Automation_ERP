@@ -21,7 +21,7 @@ import dayjs from 'dayjs'
 const { TextArea } = Input
 const { Option } = Select
 
-export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
+export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
   const [form] = Form.useForm()
   const [items, setItems] = useState([])
   const [quotations, setQuotations] = useState([])
@@ -59,35 +59,21 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
   useEffect(() => {
     loadQuotations()
     if (editingOrder) {
-      // Convert quotation numbers back to IDs for the multi-select
-      const quotationIds = []
-      if (editingOrder.quotationNumber) {
-        const quotationNumbers = editingOrder.quotationNumber.split(', ')
-        quotationNumbers.forEach(qNum => {
-          const quotation = quotations.find(q => q.quotationNumber === qNum.trim())
-          if (quotation) {
-            quotationIds.push(quotation.id)
-          }
-        })
-      }
-      
       form.setFieldsValue({
         ...editingOrder,
-        quotationNumber: quotationIds, // Set as array of IDs for multi-select
         poDate: editingOrder.poDate ? dayjs(editingOrder.poDate) : dayjs(),
         deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null
       })
       setItems(editingOrder.items || [])
     } else {
       form.setFieldsValue({
-        poNumber: generatePONumber('project'),
         poDate: dayjs(),
         poStatus: 1,
         currencyId: 1,
         exchangeRate: 1
       })
     }
-  }, [editingOrder, quotations])
+  }, [editingOrder])
 
   // Handle quotation selection
   const handleQuotationSelect = (quotationIds) => {
@@ -236,22 +222,21 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       }
     },
     {
-      title: 'Quotation Number',
-      dataIndex: 'quotationNumber',
+      title: 'PO Number',
+      dataIndex: 'poNumber',
       width: 130,
       render: (text, record) => {
-        const selectedQuotationIds = form.getFieldValue('quotationNumber') || []
-        const selectedQuotations = quotations.filter(q => selectedQuotationIds.includes(q.id))
+        const selectedPONumbers = form.getFieldValue('poNumber') || []
         return (
           <Select
             value={text}
-            onChange={(value) => updateItem(record.key, 'quotationNumber', value)}
+            onChange={(value) => updateItem(record.key, 'poNumber', value)}
             style={{ width: '100%' }}
-            placeholder="Select Quotation"
+            placeholder="Select PO Number"
           >
-            {selectedQuotations.map(q => (
-              <Option key={q.id} value={q.quotationNumber}>
-                {q.quotationNumber}
+            {selectedPONumbers.map(poNumber => (
+              <Option key={poNumber} value={poNumber}>
+                {poNumber}
               </Option>
             ))}
           </Select>
@@ -269,13 +254,15 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       dataIndex: 'itemName',
       width: 180,
       render: (text, record) => {
-        const selectedQuotation = quotations.find(q => q.quotationNumber === record.quotationNumber)
-        const lineItems = selectedQuotation?.lineItems || []
+        const selectedQuotationIds = form.getFieldValue('quotationNumber') || []
+        const selectedQuotations = quotations.filter(q => selectedQuotationIds.includes(q.id))
+        const allLineItems = selectedQuotations.flatMap(q => q.lineItems || [])
+        
         return (
           <Select
             value={text}
             onChange={(value) => {
-              const selectedItem = lineItems.find(item => item.itemName === value)
+              const selectedItem = allLineItems.find(item => item.itemName === value)
               if (selectedItem) {
                 const material = materials.find(m => m.itemCode === selectedItem.itemCode)
                 const taxRate = selectedItem.tax || material?.tax || 18
@@ -320,7 +307,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
               option.children.toLowerCase().includes(input.toLowerCase())
             }
           >
-            {lineItems.map((item, idx) => (
+            {allLineItems.map((item, idx) => (
               <Option key={idx} value={item.itemName}>
                 {item.itemName}
               </Option>
@@ -328,6 +315,30 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
           </Select>
         )
       }
+    },
+    {
+      title: 'Serial Number',
+      dataIndex: 'serialNumber',
+      width: 120,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.key, 'serialNumber', e.target.value)}
+          placeholder="Serial Number"
+        />
+      )
+    },
+    {
+      title: 'Part Number',
+      dataIndex: 'partNumber',
+      width: 120,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.key, 'partNumber', e.target.value)}
+          placeholder="Part Number"
+        />
+      )
     },
     {
       title: 'Category',
@@ -379,6 +390,43 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       )
     },
     {
+      title: 'Balance Qty',
+      dataIndex: 'balanceQuantity',
+      width: 90,
+      render: (text, record) => {
+        // Show empty if no item name is selected
+        if (!record.itemName) {
+          return <span>-</span>
+        }
+        
+        // Get Purchase Order Master data
+        const purchaseOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
+        const selectedPONumbers = form.getFieldValue('poNumber') || []
+        const selectedPOs = purchaseOrders.filter(po => selectedPONumbers.includes(po.poNumber))
+        
+        // Find matching item in PO Master
+        let originalQty = 0
+        selectedPOs.forEach(po => {
+          const poItem = po.items?.find(item => item.description === record.itemName || item.itemName === record.itemName)
+          if (poItem) {
+            originalQty += poItem.quantity || 0
+          }
+        })
+        
+        // Calculate already ordered quantity for this item
+        const orderedQty = items
+          .filter(item => item.itemName === record.itemName && item.key !== record.key)
+          .reduce((sum, item) => sum + (item.quantity || 0), 0)
+        
+        const balance = originalQty - orderedQty - (record.quantity || 0)
+        return (
+          <span style={{ color: balance < 0 ? '#ff4d4f' : balance === 0 ? '#faad14' : '#52c41a' }}>
+            {balance}
+          </span>
+        )
+      }
+    },
+    {
       title: 'Unit (per)',
       dataIndex: 'unitId',
       width: 80,
@@ -412,6 +460,21 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       )
     },
     {
+      title: 'Discount',
+      dataIndex: 'discountAmount',
+      width: 100,
+      render: (text, record) => (
+        <InputNumber
+          value={text || 0}
+          onChange={(value) => updateItem(record.key, 'discountAmount', value || 0)}
+          min={0}
+          precision={2}
+          style={{ width: '100%' }}
+          placeholder="0.00"
+        />
+      )
+    },
+    {
       title: 'Amount',
       dataIndex: 'totalAmount',
       width: 120,
@@ -435,35 +498,36 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     try {
       const selectedQuotations = quotations.filter(q => (values.quotationNumber || []).includes(q.id))
       const quotationNumbers = selectedQuotations.map(q => q.quotationNumber).join(', ')
+      const workOrderNumbers = selectedQuotations.map(q => q.workOrderNumber || q.quotationNumber).join(', ')
       
       const orderData = {
         ...values,
         quotationNumber: quotationNumbers,
-        quotationNumbers: quotationNumbers, // Keep both for compatibility
+        workOrderNumber: workOrderNumbers,
         items,
         ...totals,
         poDate: values.poDate?.format('YYYY-MM-DD'),
         deliveryDate: values.deliveryDate?.format('YYYY-MM-DD'),
-        createdDate: editingOrder ? editingOrder.createdDate : new Date().toISOString(),
+        createdDate: new Date().toISOString(),
         createdBy: 1,
         companyId: 1,
         financialYearId: 1,
         isActive: true
       }
 
-      const existingOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
+      const existingEntries = JSON.parse(localStorage.getItem('purchaseOrderEntries') || '[]')
 
       if (editingOrder) {
-        const updatedOrders = existingOrders.map(order =>
-          order.id === editingOrder.id ? { ...orderData, id: editingOrder.id } : order
+        const updatedEntries = existingEntries.map(entry =>
+          entry.id === editingOrder.id ? { ...orderData, id: editingOrder.id } : entry
         )
-        localStorage.setItem('purchaseOrders', JSON.stringify(updatedOrders))
-        message.success('Purchase Order updated successfully!')
+        localStorage.setItem('purchaseOrderEntries', JSON.stringify(updatedEntries))
+        message.success('Purchase Order Entry updated successfully!')
       } else {
-        const newOrder = { id: Date.now(), ...orderData }
-        existingOrders.push(newOrder)
-        localStorage.setItem('purchaseOrders', JSON.stringify(existingOrders))
-        message.success('Purchase Order saved successfully!')
+        const newEntry = { id: Date.now(), ...orderData }
+        existingEntries.push(newEntry)
+        localStorage.setItem('purchaseOrderEntries', JSON.stringify(existingEntries))
+        message.success('Purchase Order Entry saved successfully!')
       }
 
       onOrderSaved && onOrderSaved()
@@ -488,7 +552,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
               style={{ marginRight: '8px' }}
             />
             <Typography.Title level={3} style={{ margin: '0', color: '#333' }}>
-              Create Purchase Order
+              Create Purchase Entry
             </Typography.Title>
           </div>
         </div>
@@ -498,13 +562,58 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
           <Card size="small" title="Order Details" style={{ marginBottom: '16px' }}>
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="poNumber" label="PO Number">
-                  <Input disabled placeholder="Auto-generated" />
-                </Form.Item>
-                <Form.Item name="quotationNumber" label="Work Order Number">
+                <Form.Item name="poNumber" label="PO Number" rules={[{ required: true }]}>
                   <Select 
                     mode="multiple"
-                    placeholder="Select Work Orders" 
+                    placeholder="Select PO Numbers"
+                    showSearch
+                    optionFilterProp="children"
+                    filterOption={(input, option) => 
+                      option.children.toLowerCase().includes(input.toLowerCase())
+                    }
+                    onChange={(selectedPONumbers) => {
+                      const purchaseOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
+                      const selectedOrders = purchaseOrders.filter(order => selectedPONumbers.includes(order.poNumber))
+                      
+                      const workOrderNumbers = selectedOrders.map(order => 
+                        order.workOrderNumber
+                      ).filter(Boolean).join(', ')
+                      
+                      const quotationNumbers = selectedOrders.map(order => 
+                        order.quotationNumber
+                      ).filter(Boolean).join(', ')
+                      
+                      // Find matching quotation IDs for auto-selection
+                      const matchingQuotationIds = quotations
+                        .filter(q => selectedOrders.some(order => 
+                          order.workOrderNumber === (q.workOrderNumber || q.quotationNumber)
+                        ))
+                        .map(q => q.id)
+                      
+                      form.setFieldsValue({
+                        workOrderNumber: workOrderNumbers,
+                        quotationNumber: matchingQuotationIds,
+                        quotationNumbers: quotationNumbers
+                      })
+                    }}
+                  >
+                    {(() => {
+                      const purchaseOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
+                      return purchaseOrders.map(order => (
+                        <Option key={order.id} value={order.poNumber}>
+                          {order.poNumber}
+                        </Option>
+                      ))
+                    })()}
+                  </Select>
+                </Form.Item>
+                <Form.Item name="workOrderNumber" label="Work Order Number">
+                  <Input placeholder="Auto-filled from PO selection" disabled />
+                </Form.Item>
+                <Form.Item name="quotationNumber" label="Additional Work Orders">
+                  <Select 
+                    mode="multiple"
+                    placeholder="Select additional work orders if needed" 
                     onChange={handleQuotationSelect}
                     showSearch
                     optionFilterProp="children"
@@ -517,7 +626,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                   </Select>
                 </Form.Item>
                 <Form.Item name="quotationNumbers" label="Quotation Number">
-                  <Input placeholder="Auto-filled from work orders" disabled />
+                  <Input placeholder="Auto-filled from PO selection" disabled />
                 </Form.Item>
                 <Form.Item name="poType" hidden>
                   <Input />
@@ -627,7 +736,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                 pagination={false}
                 size="small"
                 bordered
-                scroll={{ x: 1800 }}
+                scroll={{ x: 2200 }}
               />
             </Card>
           </div>
@@ -665,25 +774,32 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                   <Col>Total Tax Amount</Col>
                   <Col>₹{totals.totalTaxAmount.toFixed(2)}</Col>
                 </Row>
+                <Row justify="space-between" style={{ marginBottom: '8px' }}>
+                  <Col>Total Discount</Col>
+                  <Col>-₹{totals.totalDiscountAmount.toFixed(2)}</Col>
+                </Row>
+                <Row justify="space-between" style={{ marginBottom: '8px' }}>
+                  <Col>Additional Discount</Col>
+                  <Col>
+                    <Form.Item name="additionalDiscount" style={{ margin: 0 }}>
+                      <InputNumber
+                        min={0}
+                        precision={2}
+                        placeholder="0.00"
+                        style={{ width: '100px' }}
+                        addonBefore="₹"
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
                 <Divider style={{ margin: '8px 0' }} />
                 <Row justify="space-between" style={{ marginBottom: '16px', fontWeight: 'bold', fontSize: '16px' }}>
                   <Col>Gross Total</Col>
-                  <Col>₹{totals.grossAmount.toFixed(2)}</Col>
+                  <Col>₹{(totals.grossAmount - (form.getFieldValue('additionalDiscount') || 0)).toFixed(2)}</Col>
                 </Row>
               </Card>
             </Col>
           </Row>
-
-          {/* Terms & Conditions */}
-          {/* <Row gutter={24} style={{ marginTop: '24px' }}>
-            <Col span={24}>
-              <Card size="small" title="Terms & Conditions">
-                <Form.Item name="termsConditions" label="Terms & Conditions">
-                  <TextArea rows={4} placeholder="Enter terms and conditions" />
-                </Form.Item>
-              </Card>
-            </Col>
-          </Row> */}
         </Form>
       </Card>
 

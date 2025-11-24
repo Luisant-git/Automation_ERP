@@ -320,7 +320,7 @@ const PurchaseOrderForm = ({ onOrderSaved, editingOrder }) => {
               </Col>
               <Col span={8}>
                 <Form.Item name="quotationNumber" label="Quotation Number" rules={[{ required: true }]}>
-                  <Input disabled placeholder="Auto-generated" />
+                  <Input disabled placeholder={editingOrder ? "" : "Auto-generated"} />
                 </Form.Item>
               </Col>
               <Col span={8}>

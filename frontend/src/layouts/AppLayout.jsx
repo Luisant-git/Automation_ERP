@@ -63,6 +63,7 @@ const menuItems = [
     children: [
       { key:'/procurement/purchase-order-master', label:<NavLink to="/procurement/purchase-order-master">Purchase Order Master</NavLink> },
       { key:'/procurement/purchase-order-details', label:<NavLink to="/procurement/purchase-order-details">Purchase Order Details</NavLink> },
+       { key:'/procurement/purchase-orders', label:<NavLink to="/procurement/purchase-orders">Purchase Entry</NavLink> },
       // { key:'/procurement/purchase-return-master', label:<NavLink to="/procurement/purchase-return-master">Purchase Return Master</NavLink> },
       // { key:'/procurement/purchase-return-details', label:<NavLink to="/procurement/purchase-return-details">Purchase Return Details</NavLink> },
     ]
