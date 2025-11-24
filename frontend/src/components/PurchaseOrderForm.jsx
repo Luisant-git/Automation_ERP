@@ -79,7 +79,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
   // Handle quotation selection
   const handleQuotationSelect = (quotationIds) => {
     if (!quotationIds || quotationIds.length === 0) {
-      form.setFieldsValue({ poType: undefined, workOrderNumber: '', budgetValue: null })
+      form.setFieldsValue({ poType: undefined, workOrderNumber: '', quotationNumbers: '', budgetValue: null })
       setRemainingBudget(0)
       return
     }
@@ -87,11 +87,15 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     const selectedQuotations = quotations.filter(q => quotationIds.includes(q.id))
     let poType = ''
     const workOrderNumbers = []
+    const quotationNumbers = []
     let totalBudget = 0
     
     selectedQuotations.forEach((quotation, qIndex) => {
       if (quotation.workOrderNumber) {
         workOrderNumbers.push(quotation.workOrderNumber)
+      }
+      if (quotation.quotationNumber) {
+        quotationNumbers.push(quotation.quotationNumber)
       }
       if (quotation.totalAmount) {
         totalBudget += quotation.totalAmount
@@ -102,6 +106,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     form.setFieldsValue({
       poType: poType,
       workOrderNumber: workOrderNumbers.join(', '),
+      quotationNumbers: quotationNumbers.join(', '),
       budgetValue: totalBudget || null
     })
     setRemainingBudget(totalBudget || 0)
@@ -134,7 +139,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       igstAmount: 0,
       totalAmount: 0
     }
-    const updatedItems = [newItem, ...items]
+    const updatedItems = [...items, newItem]
     setItems(updatedItems)
     updateRemainingBudget(updatedItems)
   }
@@ -207,7 +212,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
   const columns = [
     {
       title: 'Sl. No.',
-      width: 60,
+      width: 50,
       render: (_, record, index) => {
         const sameQuotationAndItem = items.filter(item => 
           item.quotationNumber === record.quotationNumber && 
@@ -218,9 +223,9 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       }
     },
     {
-      title: 'Quotation No.',
+      title: 'Quotation Number',
       dataIndex: 'quotationNumber',
-      width: 150,
+      width: 130,
       render: (text, record) => {
         const selectedQuotationIds = form.getFieldValue('quotationNumber') || []
         const selectedQuotations = quotations.filter(q => selectedQuotationIds.includes(q.id))
@@ -243,13 +248,13 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     {
       title: 'Item Code',
       dataIndex: 'itemCode',
-      width: 120,
+      width: 100,
       render: (text) => text || '-'
     },
     {
       title: 'Item Name',
       dataIndex: 'itemName',
-      width: 200,
+      width: 180,
       render: (text, record) => {
         const selectedQuotation = quotations.find(q => q.quotationNumber === record.quotationNumber)
         const lineItems = selectedQuotation?.lineItems || []
@@ -344,30 +349,6 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
           value={text}
           onChange={(e) => updateItem(record.key, 'hsnCode', e.target.value)}
           placeholder="HSN/SAC"
-        />
-      )
-    },
-    {
-      title: 'Part Number',
-      dataIndex: 'partNumber',
-      width: 120,
-      render: (text, record) => (
-        <Input
-          value={text}
-          onChange={(e) => updateItem(record.key, 'partNumber', e.target.value)}
-          placeholder="P/N"
-        />
-      )
-    },
-    {
-      title: 'Serial Number',
-      dataIndex: 'serialNumber',
-      width: 120,
-      render: (text, record) => (
-        <Input
-          value={text}
-          onChange={(e) => updateItem(record.key, 'serialNumber', e.target.value)}
-          placeholder="Serial Number"
         />
       )
     },
@@ -506,23 +487,23 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                 <Form.Item name="poNumber" label="PO Number">
                   <Input disabled placeholder="Auto-generated" />
                 </Form.Item>
-                <Form.Item name="quotationNumber" label="Quotation Number">
+                <Form.Item name="quotationNumber" label="Work Order Number">
                   <Select 
                     mode="multiple"
-                    placeholder="Select Quotations" 
+                    placeholder="Select Work Orders" 
                     onChange={handleQuotationSelect}
                     showSearch
                     optionFilterProp="children"
                   >
                     {quotations.map(q => (
                       <Option key={q.id} value={q.id}>
-                        {q.quotationNumber} - {q.projectName || 'N/A'}
+                        {q.workOrderNumber || q.quotationNumber} - {q.projectName || 'N/A'}
                       </Option>
                     ))}
                   </Select>
                 </Form.Item>
-                <Form.Item name="workOrderNumber" label="Work Order Number">
-                  <Input placeholder="Auto-filled from quotation" disabled />
+                <Form.Item name="quotationNumbers" label="Quotation Number">
+                  <Input placeholder="Auto-filled from work orders" disabled />
                 </Form.Item>
                 <Form.Item name="poType" hidden>
                   <Input />
