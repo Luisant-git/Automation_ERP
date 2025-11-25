@@ -39,6 +39,15 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
     return `${prefix}${String(lastNumber + 1).padStart(3, '0')}`
   }
 
+  // Generate Purchase Invoice Number
+  const generatePurchaseInvoiceNumber = () => {
+    const prefix = 'PI-'
+    const existing = JSON.parse(localStorage.getItem('purchaseOrderEntries') || '[]')
+    const numbers = existing.map(entry => parseInt(entry.purchaseInvoiceNumber?.replace(prefix, '') || '0'))
+    const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
+    return `${prefix}${String(lastNumber + 1).padStart(4, '0')}`
+  }
+
   // Handle PO Type change
   const handlePOTypeChange = (type) => {
     if (!editingOrder) {
@@ -67,6 +76,7 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
       setItems(editingOrder.items || [])
     } else {
       form.setFieldsValue({
+        purchaseInvoiceNumber: generatePurchaseInvoiceNumber(),
         poDate: dayjs(),
         poStatus: 1,
         currencyId: 1,
@@ -78,7 +88,7 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
   // Handle quotation selection
   const handleQuotationSelect = (quotationIds) => {
     if (!quotationIds || quotationIds.length === 0) {
-      form.setFieldsValue({ poType: undefined, workOrderNumber: '', quotationNumbers: '', budgetValue: null })
+      form.setFieldsValue({ poType: undefined, quotationNumbers: '', budgetValue: null })
       setRemainingBudget(0)
       return
     }
@@ -104,7 +114,6 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
     
     form.setFieldsValue({
       poType: poType,
-      workOrderNumber: workOrderNumbers.join(', '),
       quotationNumbers: quotationNumbers.join(', '),
       budgetValue: totalBudget || null
     })
@@ -498,7 +507,7 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
     try {
       const selectedQuotations = quotations.filter(q => (values.quotationNumber || []).includes(q.id))
       const quotationNumbers = selectedQuotations.map(q => q.quotationNumber).join(', ')
-      const workOrderNumbers = selectedQuotations.map(q => q.workOrderNumber || q.quotationNumber).join(', ')
+      const workOrderNumbers = (values.workOrderNumber || []).join(', ')
       
       const orderData = {
         ...values,
@@ -562,6 +571,9 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
           <Card size="small" title="Order Details" style={{ marginBottom: '16px' }}>
             <Row gutter={16}>
               <Col span={12}>
+                <Form.Item name="purchaseInvoiceNumber" label="Purchase Invoice Number">
+                  <Input disabled placeholder="Auto-generated" />
+                </Form.Item>
                 <Form.Item name="poNumber" label="PO Number" rules={[{ required: true }]}>
                   <Select 
                     mode="multiple"
@@ -571,31 +583,7 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
                     filterOption={(input, option) => 
                       option.children.toLowerCase().includes(input.toLowerCase())
                     }
-                    onChange={(selectedPONumbers) => {
-                      const purchaseOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-                      const selectedOrders = purchaseOrders.filter(order => selectedPONumbers.includes(order.poNumber))
-                      
-                      const workOrderNumbers = selectedOrders.map(order => 
-                        order.workOrderNumber
-                      ).filter(Boolean).join(', ')
-                      
-                      const quotationNumbers = selectedOrders.map(order => 
-                        order.quotationNumber
-                      ).filter(Boolean).join(', ')
-                      
-                      // Find matching quotation IDs for auto-selection
-                      const matchingQuotationIds = quotations
-                        .filter(q => selectedOrders.some(order => 
-                          order.workOrderNumber === (q.workOrderNumber || q.quotationNumber)
-                        ))
-                        .map(q => q.id)
-                      
-                      form.setFieldsValue({
-                        workOrderNumber: workOrderNumbers,
-                        quotationNumber: matchingQuotationIds,
-                        quotationNumbers: quotationNumbers
-                      })
-                    }}
+
                   >
                     {(() => {
                       const purchaseOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
@@ -607,19 +595,34 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
                     })()}
                   </Select>
                 </Form.Item>
+
                 <Form.Item name="workOrderNumber" label="Work Order Number">
-                  <Input placeholder="Auto-filled from PO selection" disabled />
-                </Form.Item>
-                <Form.Item name="quotationNumber" label="Additional Work Orders">
                   <Select 
                     mode="multiple"
-                    placeholder="Select additional work orders if needed" 
-                    onChange={handleQuotationSelect}
+                    placeholder="Select Work Order Numbers" 
                     showSearch
                     optionFilterProp="children"
+                    onChange={(selectedWorkOrders) => {
+                      // Find matching quotation IDs for the selected work orders
+                      const matchingQuotationIds = quotations
+                        .filter(q => selectedWorkOrders.includes(q.workOrderNumber || q.quotationNumber))
+                        .map(q => q.id)
+                      
+                      const quotationNumbers = quotations
+                        .filter(q => selectedWorkOrders.includes(q.workOrderNumber || q.quotationNumber))
+                        .map(q => q.quotationNumber)
+                        .join(', ')
+                      
+                      form.setFieldsValue({
+                        quotationNumber: matchingQuotationIds,
+                        quotationNumbers: quotationNumbers
+                      })
+                      
+                      handleQuotationSelect(matchingQuotationIds)
+                    }}
                   >
                     {quotations.map(q => (
-                      <Option key={q.id} value={q.id}>
+                      <Option key={q.id} value={q.workOrderNumber || q.quotationNumber}>
                         {q.workOrderNumber || q.quotationNumber} - {q.projectName || 'N/A'}
                       </Option>
                     ))}

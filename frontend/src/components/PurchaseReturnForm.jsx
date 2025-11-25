@@ -24,6 +24,7 @@ const { Option } = Select
 export default function PurchaseReturnForm({ editingReturn, onClose }) {
   const [form] = Form.useForm()
   const [returnDetails, setReturnDetails] = useState([])
+  const [purchaseEntries, setPurchaseEntries] = useState([])
 
   // Generate Return Number
   const generateReturnNumber = () => {
@@ -34,8 +35,32 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
     return `RET${year}${month}${random}`
   }
 
+  // Load purchase entries
+  const loadPurchaseEntries = () => {
+    const entries = JSON.parse(localStorage.getItem('purchaseOrderEntries') || '[]')
+    setPurchaseEntries(entries)
+  }
+
+  // Get available items from selected invoice
+  const getAvailableItems = () => {
+    const invoiceNumber = form.getFieldValue('purchaseInvoiceNumber')
+    if (!invoiceNumber) return []
+    const entry = purchaseEntries.find(e => e.purchaseInvoiceNumber === invoiceNumber)
+    return entry?.items || []
+  }
+
+  // Handle purchase invoice selection
+  const handleInvoiceSelect = (invoiceNumber) => {
+    const entry = purchaseEntries.find(e => e.purchaseInvoiceNumber === invoiceNumber)
+    if (entry) {
+      form.setFieldsValue({ supplierId: entry.supplierId })
+      message.success('Invoice selected. Add items manually from the table.')
+    }
+  }
+
   // Initialize form
   useEffect(() => {
+    loadPurchaseEntries()
     if (editingReturn) {
       form.setFieldsValue({
         ...editingReturn,
@@ -56,11 +81,15 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
   const handleAddItem = () => {
     const newItem = {
       id: Date.now(),
-      itemId: null,
+      itemCode: '',
+      itemName: '',
+      serialNumber: '',
+      partNumber: '',
+      category: '',
       description: '',
       hsnCode: '',
       returnQuantity: 1,
-      unitId: null,
+      unitId: 1,
       rate: 0,
       discountPercentage: 0,
       discountAmount: 0,
@@ -120,24 +149,105 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
   // Table columns with inline editing
   const columns = [
     {
-      title: 'S.No',
-      width: 60,
+      title: 'Sl. No.',
+      width: 50,
       render: (_, __, index) => index + 1
     },
     {
-      title: 'Item',
-      dataIndex: 'itemId',
-      width: 150,
+      title: 'Item Code',
+      dataIndex: 'itemCode',
+      width: 100,
+      render: (text) => text || '-'
+    },
+    {
+      title: 'Item Name',
+      dataIndex: 'itemName',
+      width: 180,
       render: (text, record) => (
-        <Select
+        <Input
           value={text}
-          onChange={(value) => updateItem(record.id, 'itemId', value)}
-          placeholder="Select Item"
-          style={{ width: '100%' }}
-        >
-          <Option value={1}>Item 1</Option>
-          <Option value={2}>Item 2</Option>
-        </Select>
+          onChange={(e) => updateItem(record.id, 'itemName', e.target.value)}
+          placeholder="Item Name"
+        />
+      )
+    },
+    {
+      title: 'Serial Number',
+      dataIndex: 'serialNumber',
+      width: 120,
+      render: (text, record) => {
+        const availableItems = getAvailableItems()
+        return (
+          <Select
+            value={text}
+            onChange={(value) => {
+              const selectedItem = availableItems.find(item => item.serialNumber === value)
+              if (selectedItem) {
+                const updatedItems = returnDetails.map(item => {
+                  if (item.id === record.id) {
+                    return {
+                      ...item,
+                      itemCode: selectedItem.itemCode || '',
+                      itemName: selectedItem.itemName || '',
+                      serialNumber: selectedItem.serialNumber || '',
+                      partNumber: selectedItem.partNumber || '',
+                      category: selectedItem.category || '',
+                      description: selectedItem.description || '',
+                      hsnCode: selectedItem.hsnCode || '',
+                      returnQuantity: selectedItem.quantity || 0,
+                      unitId: selectedItem.unitId || 1,
+                      rate: selectedItem.rate || 0,
+                      discountAmount: selectedItem.discountAmount || 0,
+                      cgstPercentage: selectedItem.cgstPercentage || 9,
+                      sgstPercentage: selectedItem.sgstPercentage || 9,
+                      igstPercentage: selectedItem.igstPercentage || 0,
+                      taxableAmount: selectedItem.taxableAmount || 0,
+                      cgstAmount: selectedItem.cgstAmount || 0,
+                      sgstAmount: selectedItem.sgstAmount || 0,
+                      igstAmount: selectedItem.igstAmount || 0,
+                      totalAmount: selectedItem.totalAmount || 0
+                    }
+                  }
+                  return item
+                })
+                setReturnDetails(updatedItems)
+              }
+            }}
+            style={{ width: '100%' }}
+            placeholder="Select Serial Number"
+            showSearch
+          >
+            {availableItems.map((item, idx) => (
+              <Option key={idx} value={item.serialNumber}>
+                {item.serialNumber}
+              </Option>
+            ))}
+          </Select>
+        )
+      }
+    },
+    {
+      title: 'Part Number',
+      dataIndex: 'partNumber',
+      width: 120,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.id, 'partNumber', e.target.value)}
+          placeholder="Part Number"
+        />
+      )
+    },
+    {
+      title: 'Category',
+      dataIndex: 'category',
+      width: 120,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.id, 'category', e.target.value)}
+          placeholder="Category"
+        />
       )
     },
     {
@@ -153,105 +263,80 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
       )
     },
     {
-      title: 'HSN Code',
+      title: 'HSN/SAC',
       dataIndex: 'hsnCode',
       width: 100,
       render: (text, record) => (
         <Input
           value={text}
           onChange={(e) => updateItem(record.id, 'hsnCode', e.target.value)}
-          placeholder="HSN"
+          placeholder="HSN/SAC"
         />
       )
     },
     {
-      title: 'Return Qty',
+      title: 'Quantity',
       dataIndex: 'returnQuantity',
-      width: 100,
+      width: 80,
       render: (text, record) => (
         <InputNumber
           value={text}
           onChange={(value) => updateItem(record.id, 'returnQuantity', value || 0)}
           min={0}
-          step={0.001}
           style={{ width: '100%' }}
         />
       )
     },
     {
-      title: 'Unit',
+      title: 'Unit (per)',
       dataIndex: 'unitId',
       width: 80,
       render: (text, record) => (
         <Select
           value={text}
           onChange={(value) => updateItem(record.id, 'unitId', value)}
-          placeholder="Unit"
           style={{ width: '100%' }}
         >
           <Option value={1}>Nos</Option>
           <Option value={2}>Kg</Option>
+          <Option value={3}>Mtr</Option>
+          <Option value={4}>Ltr</Option>
+          <Option value={5}>Set</Option>
         </Select>
       )
     },
     {
-      title: 'Rate',
+      title: 'Rate (per unit)',
       dataIndex: 'rate',
-      width: 100,
+      width: 120,
       render: (text, record) => (
         <InputNumber
-          value={text}
+          value={text || 0}
           onChange={(value) => updateItem(record.id, 'rate', value || 0)}
           min={0}
-          step={0.01}
+          precision={2}
           style={{ width: '100%' }}
+          placeholder="0.00"
         />
       )
     },
     {
-      title: 'Discount %',
-      dataIndex: 'discountPercentage',
+      title: 'Discount',
+      dataIndex: 'discountAmount',
       width: 100,
       render: (text, record) => (
         <InputNumber
-          value={text}
-          onChange={(value) => updateItem(record.id, 'discountPercentage', value || 0)}
+          value={text || 0}
+          onChange={(value) => updateItem(record.id, 'discountAmount', value || 0)}
           min={0}
-          max={100}
+          precision={2}
           style={{ width: '100%' }}
+          placeholder="0.00"
         />
       )
     },
     {
-      title: 'CGST %',
-      dataIndex: 'cgstPercentage',
-      width: 80,
-      render: (text, record) => (
-        <InputNumber
-          value={text}
-          onChange={(value) => updateItem(record.id, 'cgstPercentage', value || 0)}
-          min={0}
-          max={50}
-          style={{ width: '100%' }}
-        />
-      )
-    },
-    {
-      title: 'SGST %',
-      dataIndex: 'sgstPercentage',
-      width: 80,
-      render: (text, record) => (
-        <InputNumber
-          value={text}
-          onChange={(value) => updateItem(record.id, 'sgstPercentage', value || 0)}
-          min={0}
-          max={50}
-          style={{ width: '100%' }}
-        />
-      )
-    },
-    {
-      title: 'Total Amount',
+      title: 'Amount',
       dataIndex: 'totalAmount',
       width: 120,
       render: (text) => `₹${(text || 0).toFixed(2)}`
@@ -366,16 +451,23 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
             </Col>
             <Col span={12}>
               <Card size="small" title="Reference Details">
-                <Form.Item name="supplierId" label="Supplier" rules={[{ required: true }]}>
-                  <Select placeholder="Select Supplier">
-                    <Option value={1}>Supplier 1</Option>
-                    <Option value={2}>Supplier 2</Option>
+                <Form.Item name="purchaseInvoiceNumber" label="Purchase Invoice Number" rules={[{ required: true }]}>
+                  <Select 
+                    placeholder="Select Purchase Invoice" 
+                    showSearch
+                    onChange={handleInvoiceSelect}
+                  >
+                    {purchaseEntries.map(entry => (
+                      <Option key={entry.id} value={entry.purchaseInvoiceNumber}>
+                        {entry.purchaseInvoiceNumber}
+                      </Option>
+                    ))}
                   </Select>
                 </Form.Item>
-                <Form.Item name="purchaseId" label="Purchase Reference" rules={[{ required: true }]}>
-                  <Select placeholder="Select Purchase">
-                    <Option value={1}>PUR001</Option>
-                    <Option value={2}>PUR002</Option>
+                <Form.Item name="supplierId" label="Supplier" rules={[{ required: true }]}>
+                  <Select placeholder="Select Supplier" disabled>
+                    <Option value={1}>Supplier 1</Option>
+                    <Option value={2}>Supplier 2</Option>
                   </Select>
                 </Form.Item>
                 <Row gutter={16}>
@@ -400,6 +492,43 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
           {/* Return Items Table */}
           <div style={{ marginTop: '24px' }}>
             <Card size="small" title="Purchase Return Items">
+              {(() => {
+                const invoiceNumber = form.getFieldValue('purchaseInvoiceNumber')
+                if (invoiceNumber) {
+                  const entry = purchaseEntries.find(e => e.purchaseInvoiceNumber === invoiceNumber)
+                  if (entry) {
+                    const totalPurchaseAmount = entry.grossAmount || entry.totalAmount || entry.netAmount || 0
+                    const returnAmount = totals.netAmount
+                    return (
+                      <Table
+                        size="small"
+                        pagination={false}
+                        style={{ marginBottom: '12px' }}
+                        dataSource={[{
+                          key: 1,
+                          totalPurchaseAmount,
+                          returnAmount
+                        }]}
+                        columns={[
+                          { 
+                            title: 'Total Purchase Entry Amount', 
+                            dataIndex: 'totalPurchaseAmount', 
+                            width: 250, 
+                            render: (val) => <span style={{ fontWeight: 'bold', fontSize: '14px' }}>₹{val.toFixed(2)}</span>
+                          },
+                          { 
+                            title: 'Return Amount', 
+                            dataIndex: 'returnAmount', 
+                            width: 250, 
+                            render: (val) => <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#ff4d4f' }}>₹{val.toFixed(2)}</span>
+                          }
+                        ]}
+                      />
+                    )
+                  }
+                }
+                return null
+              })()}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <Typography.Text strong>Items/Services</Typography.Text>
                 <Button type="primary" icon={<PlusOutlined />} onClick={handleAddItem}>
@@ -412,7 +541,7 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
                 pagination={false}
                 size="small"
                 bordered
-                scroll={{ x: 1600 }}
+                scroll={{ x: 2000 }}
               />
             </Card>
           </div>
