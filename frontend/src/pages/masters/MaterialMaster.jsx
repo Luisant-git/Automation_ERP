@@ -1,176 +1,59 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, InputNumber, Switch, Tag } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, InputNumber, Switch, Tag, Spin } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { materialAPI, brandAPI, categoryAPI, taxRateAPI, useApiLoading } from '../../services/apiService'
 
 const MaterialMaster = () => {
   const [form] = Form.useForm()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
-  
-  const brands = [
-    'Siemens',
-    'ABB',
-    'Schneider Electric',
-    'Allen Bradley',
-    'Mitsubishi',
-    'Omron',
-    'Phoenix Contact',
-    'Weidmuller',
-    'Pepperl+Fuchs',
-    'Festo',
-    'SMC',
-    'Parker',
-    'Bosch Rexroth',
-    'Danfoss',
-    'Emerson',
-    'Honeywell',
-    'Yokogawa',
-    'Endress+Hauser',
-    'WAGO',
-    'Pilz',
-    'Turck',
-    'Balluff',
-    'IFM',
-    'Leuze',
-    'SICK',
-    'Banner',
-    'Keyence',
-    'Autonics',
-    'Delta',
-    'LS Electric',
-    'Fuji Electric',
-    'Panasonic',
-    'Rockwell',
-    'GE',
-    'Eaton',
-    'Legrand',
-    'Rittal',
-    'Murr Elektronik',
-    'Harting',
-    'Molex',
-    'TE Connectivity',
-    'Amphenol',
-    'Belden',
-    'Lapp',
-    'Helukabel',
-    'Igus',
-    'SKF',
-    'FAG',
-    'NSK',
-    'Timken',
-    'NTN',
-    'Schaeffler',
-    'Gates',
-    'Optibelt',
-    'ContiTech',
-    'Dayco',
-    'Fenner',
-    'Lovejoy',
-    'Martin',
-    'Rexnord',
-    'Dodge',
-    'Baldor',
-    'WEG',
-    'Crompton Greaves',
-    'Kirloskar',
-    'Havells',
-    'V-Guard',
-    'Finolex',
-    'Polycab',
-    'KEI',
-    'RR Kabel',
-    'Generic',
-    'OEM',
-    'Custom'
-  ]
   const [materials, setMaterials] = useState([])
-
-  React.useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('materials') || '[]')
-    if (saved.length === 0) {
-      const initial = [
-    {
-      key: 1,
-      itemCode: 'MTR001',
-      itemName: 'Steel Rod 12mm',
-      serialNumber: 'SN-0001',
-      hsnCode: '72142000',
-      itemCategory: 'raw-material',
-      brand: 'Generic',
-      unit: 'kg',
-      tax: 18,
-      purchaseRate: 65,
-      sellingRate: 85,
-      quantity: 5000,
-      isActive: true
-    },
-    {
-      key: 2,
-      itemCode: 'MTR002',
-      itemName: 'Copper Wire 2.5mm',
-      serialNumber: 'SN-0002',
-      hsnCode: '85444900',
-      itemCategory: 'raw-material',
-      brand: 'Polycab',
-      unit: 'mtr',
-      tax: 18,
-      purchaseRate: 12,
-      sellingRate: 18,
-      quantity: 10000,
-      isActive: true
-    },
-    {
-      key: 3,
-      itemCode: 'FG001',
-      itemName: 'Control Panel 415V',
-      serialNumber: 'SN-0003',
-      hsnCode: '85371000',
-      itemCategory: 'finished-goods',
-      brand: 'Siemens',
-      unit: 'pcs',
-      tax: 18,
-      purchaseRate: 15000,
-      sellingRate: 22000,
-      quantity: 25,
-      isActive: false
-    },
-    {
-      key: 4,
-      itemCode: 'SP001',
-      itemName: 'Motor Bearing 6205',
-      serialNumber: 'SN-0004',
-      hsnCode: '84821000',
-      itemCategory: 'spare-parts',
-      brand: 'SKF',
-      unit: 'pcs',
-      tax: 18,
-      purchaseRate: 450,
-      sellingRate: 650,
-      quantity: 200,
-      isActive: true
-    },
-    {
-      key: 5,
-      itemCode: 'CON001',
-      itemName: 'Hydraulic Oil SAE 68',
-      serialNumber: 'SN-0005',
-      hsnCode: '27101981',
-      itemCategory: 'consumables',
-      brand: 'Shell',
-      unit: 'ltr',
-      tax: 18,
-      purchaseRate: 180,
-      sellingRate: 250,
-      quantity: 500,
-      isActive: true
-    }
-      ]
-      localStorage.setItem('materials', JSON.stringify(initial))
-      setMaterials(initial)
-    } else {
-      setMaterials(saved)
-    }
+  const [brands, setBrands] = useState([])
+  const [categories, setCategories] = useState([])
+  const [taxRates, setTaxRates] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
+  useEffect(() => {
+    fetchMaterials()
+    fetchBrands()
+    fetchCategories()
+    fetchTaxRates()
   }, [])
+
+  const fetchMaterials = async () => {
+    try {
+      const data = await executeWithLoading(() => materialAPI.getAll())
+      setMaterials(data.map(item => ({ ...item, key: item.id })))
+    } catch (error) {
+      console.error('Failed to fetch materials:', error)
+    }
+  }
+
+  const fetchBrands = async () => {
+    try {
+      const data = await brandAPI.getDropdownList()
+      setBrands(data.data)
+    } catch (error) {
+      console.error('Failed to fetch brands:', error)
+    }
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const data = await categoryAPI.getDropdownList()
+      setCategories(data.data)
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+    }
+  }
+
+  const fetchTaxRates = async () => {
+    try {
+      const data = await taxRateAPI.getDropdownList()
+      setTaxRates(data.data)
+    } catch (error) {
+      console.error('Failed to fetch tax rates:', error)
+    }
+  }
 
   const generateSerialNumber = () => {
     const lastNumber = materials.length > 0 
@@ -186,8 +69,18 @@ const MaterialMaster = () => {
     { title: 'Item Name', dataIndex: 'itemName', key: 'itemName', width: 150 },
     // { title: 'Serial Number', dataIndex: 'serialNumber', key: 'serialNumber', width: 120 },
     { title: 'HSN Code', dataIndex: 'hsnCode', key: 'hsnCode', width: 100 },
-    { title: 'Category', dataIndex: 'itemCategory', key: 'itemCategory', width: 120 },
-    { title: 'Brand', dataIndex: 'brand', key: 'brand', width: 120 },
+    { 
+      title: 'Category', 
+      key: 'category', 
+      width: 120,
+      render: (_, record) => record.category?.name || '-'
+    },
+    { 
+      title: 'Brand', 
+      key: 'brand', 
+      width: 120,
+      render: (_, record) => record.brandRelation?.name || '-'
+    },
     { title: 'Unit', dataIndex: 'unit', key: 'unit', width: 80 },
     { title: 'Tax %', dataIndex: 'tax', key: 'tax', width: 80 },
     { title: 'Purchase Rate', dataIndex: 'purchaseRate', key: 'purchaseRate', width: 120 },
@@ -210,27 +103,28 @@ const MaterialMaster = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
   ]
 
-  const handleSubmit = (values) => {
-    let updated
-    if (editingRecord) {
-      updated = materials.map(m => m.key === editingRecord.key ? { ...values, key: editingRecord.key, id: editingRecord.id } : m)
-      message.success('Material updated successfully')
-    } else {
-      const newId = Date.now()
-      updated = [...materials, { ...values, key: newId, id: newId }]
-      message.success('Material added successfully')
+  const handleSubmit = async (values) => {
+    try {
+      if (editingRecord) {
+        await executeWithLoading(() => materialAPI.update(editingRecord.id, values))
+        message.success('Material updated successfully')
+      } else {
+        await executeWithLoading(() => materialAPI.create(values))
+        message.success('Material added successfully')
+      }
+      setIsModalVisible(false)
+      form.resetFields()
+      setEditingRecord(null)
+      fetchMaterials()
+    } catch (error) {
+      console.error('Failed to save material:', error)
     }
-    setMaterials(updated)
-    localStorage.setItem('materials', JSON.stringify(updated))
-    setIsModalVisible(false)
-    form.resetFields()
-    setEditingRecord(null)
   }
 
   const handleEdit = (record) => {
@@ -246,7 +140,7 @@ const MaterialMaster = () => {
     setIsModalVisible(true)
   }
 
-  const handleDelete = (key) => {
+  const handleDelete = (id) => {
     Modal.confirm({
       title: 'Delete Material',
       icon: <ExclamationCircleOutlined />,
@@ -254,11 +148,14 @@ const MaterialMaster = () => {
       okText: 'Yes, Delete',
       okButtonProps: { style: { backgroundColor: '#ff4d4f', color: '#ffffffff', borderColor: '#ff4d4f' } },
       cancelText: 'Cancel',
-      onOk() {
-        const updated = materials.filter(m => m.key !== key)
-        setMaterials(updated)
-        localStorage.setItem('materials', JSON.stringify(updated))
-        message.success('Material deleted successfully')
+      async onOk() {
+        try {
+          await executeWithLoading(() => materialAPI.delete(id))
+          message.success('Material deleted successfully')
+          fetchMaterials()
+        } catch (error) {
+          console.error('Failed to delete material:', error)
+        }
       }
     })
   }
@@ -269,7 +166,9 @@ const MaterialMaster = () => {
         title="Material Master" 
         extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>Add Material</Button>}
       >
-        <Table columns={columns} dataSource={materials} size="medium" />
+        <Spin spinning={loading}>
+          <Table columns={columns} dataSource={materials} size="medium" />
+        </Spin>
       </Card>
 
       <Modal
@@ -303,17 +202,16 @@ const MaterialMaster = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="itemCategory" label="Item Category">
+              <Form.Item name="categoryId" label="Item Category">
                 <Select placeholder="Select Category">
-                  <Select.Option value="raw-material">Raw Material</Select.Option>
-                  <Select.Option value="finished-goods">Finished Goods</Select.Option>
-                  <Select.Option value="consumables">Consumables</Select.Option>
-                  <Select.Option value="spare-parts">Spare Parts</Select.Option>
+                  {categories.map(category => (
+                    <Select.Option key={category.id} value={category.id}>{category.name}</Select.Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="brand" label="Brand">
+              <Form.Item name="brandId" label="Brand">
                 <Select 
                   placeholder="Select Brand" 
                   showSearch
@@ -323,7 +221,7 @@ const MaterialMaster = () => {
                   }
                 >
                   {brands.map(brand => (
-                    <Select.Option key={brand} value={brand}>{brand}</Select.Option>
+                    <Select.Option key={brand.id} value={brand.id}>{brand.name}</Select.Option>
                   ))}
                 </Select>
               </Form.Item>
@@ -343,7 +241,11 @@ const MaterialMaster = () => {
             </Col>
             <Col span={12}>
               <Form.Item name="tax" label="Tax %">
-                <InputNumber min={0} max={100} style={{ width: '100%' }} />
+                <Select placeholder="Select Tax Rate">
+                  {taxRates.map(tax => (
+                    <Select.Option key={tax.id} value={tax.rate}>{tax.name} ({tax.rate}%)</Select.Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
           </Row>

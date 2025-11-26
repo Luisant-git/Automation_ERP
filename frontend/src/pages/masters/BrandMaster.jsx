@@ -1,18 +1,27 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Spin } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { brandAPI, useApiLoading } from '../../services/apiService'
 
 const BrandMaster = () => {
   const [form] = Form.useForm()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
-  const [brands, setBrands] = useState([
-    { key: 1, code: 'SIE', name: 'Siemens', description: 'German industrial automation' },
-    { key: 2, code: 'ABB', name: 'ABB', description: 'Swiss-Swedish automation technology' },
-    { key: 3, code: 'SCH', name: 'Schneider Electric', description: 'French electrical equipment' },
-    { key: 4, code: 'SKF', name: 'SKF', description: 'Swedish bearing manufacturer' },
-    { key: 5, code: 'POL', name: 'Polycab', description: 'Indian cable manufacturer' }
-  ])
+  const [brands, setBrands] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
+
+  useEffect(() => {
+    fetchBrands()
+  }, [])
+
+  const fetchBrands = async () => {
+    try {
+      const data = await executeWithLoading(() => brandAPI.getAll())
+      setBrands(data.map(item => ({ ...item, key: item.id })))
+    } catch (error) {
+      console.error('Failed to fetch brands:', error)
+    }
+  }
 
   const columns = [
     { title: 'Code', dataIndex: 'code', key: 'code', width: 100 },
@@ -25,23 +34,28 @@ const BrandMaster = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
   ]
 
-  const handleSubmit = (values) => {
-    if (editingRecord) {
-      setBrands(brands.map(b => b.key === editingRecord.key ? { ...values, key: editingRecord.key } : b))
-      message.success('Brand updated successfully')
-    } else {
-      setBrands([...brands, { ...values, key: Date.now() }])
-      message.success('Brand added successfully')
+  const handleSubmit = async (values) => {
+    try {
+      if (editingRecord) {
+        await executeWithLoading(() => brandAPI.update(editingRecord.id, values))
+        message.success('Brand updated successfully')
+      } else {
+        await executeWithLoading(() => brandAPI.create(values))
+        message.success('Brand added successfully')
+      }
+      setIsModalVisible(false)
+      form.resetFields()
+      setEditingRecord(null)
+      fetchBrands()
+    } catch (error) {
+      console.error('Failed to save brand:', error)
     }
-    setIsModalVisible(false)
-    form.resetFields()
-    setEditingRecord(null)
   }
 
   const handleEdit = (record) => {
@@ -50,16 +64,21 @@ const BrandMaster = () => {
     setIsModalVisible(true)
   }
 
-  const handleDelete = (key) => {
+  const handleDelete = (id) => {
     Modal.confirm({
       title: 'Delete Brand',
       icon: <ExclamationCircleOutlined />,
       content: 'Are you sure you want to delete this brand?',
       okText: 'Yes, Delete',
       okButtonProps: { danger: true },
-      onOk() {
-        setBrands(brands.filter(b => b.key !== key))
-        message.success('Brand deleted successfully')
+      async onOk() {
+        try {
+          await executeWithLoading(() => brandAPI.delete(id))
+          message.success('Brand deleted successfully')
+          fetchBrands()
+        } catch (error) {
+          console.error('Failed to delete brand:', error)
+        }
       }
     })
   }
@@ -70,7 +89,9 @@ const BrandMaster = () => {
         title="Brand Master" 
         extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>Add Brand</Button>}
       >
-        <Table columns={columns} dataSource={brands} />
+        <Spin spinning={loading}>
+          <Table columns={columns} dataSource={brands} />
+        </Spin>
       </Card>
 
       <Modal

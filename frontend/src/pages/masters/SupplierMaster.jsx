@@ -1,11 +1,14 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, Switch, Tag } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, Switch, Tag, Spin } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, MinusCircleOutlined } from '@ant-design/icons'
+import { supplierAPI, useApiLoading } from '../../services/apiService'
 
 const SupplierMaster = () => {
   const [form] = Form.useForm()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
+  const [suppliers, setSuppliers] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
   
   const states = [
     { code: '28', name: 'Andhra Pradesh' },
@@ -39,69 +42,27 @@ const SupplierMaster = () => {
     { code: '05', name: 'Uttarakhand' },
     { code: '19', name: 'West Bengal' }
   ]
-  const [suppliers, setSuppliers] = useState([
-    {
-      key: 1,
-      name: 'Anil Gupta',
-      companyName: 'Bharat Heavy Electricals Ltd',
-      contactPerson: 'Deepak Verma',
-      contactNo: '+91-9876543211',
-      emailId: 'anil.gupta@bhel.in',
-      phoneNo: '+91-11-26156000',
-      gstNumber: '07AAACB2355A1ZH',
-      isActive: true,
-      addresses: [
-        { address: 'BHEL House, Siri Fort, New Delhi 110049', state: 'Delhi', stateCode: '07', city: 'New Delhi', country: 'India' }
-      ]
-    },
-    {
-      key: 2,
-      name: 'Sunita Rao',
-      companyName: 'Siemens India Ltd',
-      contactPerson: 'Manoj Kumar',
-      contactNo: '+91-9123456788',
-      emailId: 'sunita.rao@siemens.com',
-      phoneNo: '+91-22-39677000',
-      gstNumber: '27AAACS3988E1ZA',
-      isActive: true,
-      addresses: [
-        { address: '130 Pandurang Budhkar Marg, Worli, Mumbai 400018', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' }
-      ]
-    },
-    {
-      key: 3,
-      name: 'Ramesh Chandra',
-      companyName: 'ABB India Ltd',
-      contactPerson: 'Sanjay Sharma',
-      contactNo: '+91-9988776654',
-      emailId: 'ramesh.chandra@in.abb.com',
-      phoneNo: '+91-80-22949000',
-      gstNumber: '29AAACA0318E1ZY',
-      isActive: false,
-      addresses: [
-        { address: 'Disha - 3rd Floor, Plot No. 5 & 6, 2nd Stage, Peenya Industrial Area, Bangalore 560058', state: 'Karnataka', stateCode: '29', city: 'Bangalore', country: 'India' }
-      ]
+  useEffect(() => {
+    fetchSuppliers()
+  }, [])
+
+  const fetchSuppliers = async () => {
+    try {
+      const data = await executeWithLoading(() => supplierAPI.getAll())
+      setSuppliers(data.map(item => ({ ...item, key: item.id })))
+    } catch (error) {
+      console.error('Failed to fetch suppliers:', error)
     }
-  ])
+  }
 
   const columns = [
     { title: 'Name', dataIndex: 'name', key: 'name' },
-    { title: 'Company', dataIndex: 'companyName', key: 'companyName' },
-    { title: 'Contact Person', dataIndex: 'contactPerson', key: 'contactPerson' },
-    { title: 'Phone', dataIndex: 'phoneNo', key: 'phoneNo' },
-    { title: 'Email', dataIndex: 'emailId', key: 'emailId' },
-    { title: 'GST Number', dataIndex: 'gstNumber', key: 'gstNumber' },
-    { 
-      title: 'Status', 
-      dataIndex: 'isActive', 
-      key: 'isActive', 
-      width: 100,
-      render: (isActive) => (
-        <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'Active' : 'Inactive'}
-        </Tag>
-      )
-    },
+    { title: 'Email', dataIndex: 'email', key: 'email' },
+    { title: 'Phone', dataIndex: 'phone', key: 'phone' },
+    { title: 'Address', dataIndex: 'address', key: 'address' },
+    { title: 'City', dataIndex: 'city', key: 'city' },
+    { title: 'State', dataIndex: 'state', key: 'state' },
+
     // {
     //   title: 'Addresses',
     //   key: 'addresses',
@@ -113,32 +74,55 @@ const SupplierMaster = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
   ]
 
-  const handleSubmit = (values) => {
-    if (editingRecord) {
-      setSuppliers(suppliers.map(s => s.key === editingRecord.key ? { ...values, key: editingRecord.key } : s))
-      message.success('Supplier updated successfully')
-    } else {
-      setSuppliers([...suppliers, { ...values, key: Date.now() }])
-      message.success('Supplier added successfully')
+  const handleSubmit = async (values) => {
+    try {
+      if (editingRecord) {
+        await executeWithLoading(() => supplierAPI.update(editingRecord.id, values))
+        message.success('Supplier updated successfully')
+      } else {
+        await executeWithLoading(() => supplierAPI.create(values))
+        message.success('Supplier added successfully')
+      }
+      setIsModalVisible(false)
+      form.resetFields()
+      setEditingRecord(null)
+      fetchSuppliers()
+    } catch (error) {
+      console.error('Failed to save supplier:', error)
     }
-    setIsModalVisible(false)
-    form.resetFields()
-    setEditingRecord(null)
   }
 
   const handleEdit = (record) => {
     setEditingRecord(record)
-    form.setFieldsValue(record)
+    form.setFieldsValue({
+      name: record.name,
+      companyName: record.companyName,
+      contactPerson: record.contactPerson,
+      contactNo: record.phone,
+      emailId: record.email,
+      phoneNo: record.phone,
+      gstNumber: record.gstNumber,
+      isActive: record.isActive,
+      addresses: [{
+        address: record.address,
+        city: record.city,
+        state: record.state,
+        stateCode: record.stateCode,
+        country: record.country,
+        pincode: record.pincode,
+        contact: record.contact
+      }]
+    })
     setIsModalVisible(true)
   }
 
-  const handleDelete = (key) => {
+  const handleDelete = (id) => {
     Modal.confirm({
       title: 'Delete Supplier',
       icon: <ExclamationCircleOutlined />,
@@ -146,9 +130,14 @@ const SupplierMaster = () => {
       okText: 'Yes, Delete',
       okButtonProps: { style: { backgroundColor: '#ff4d4f', color: '#ffffffff', borderColor: '#ff4d4f' } },
       cancelText: 'Cancel',
-      onOk() {
-        setSuppliers(suppliers.filter(s => s.key !== key))
-        message.success('Supplier deleted successfully')
+      async onOk() {
+        try {
+          await executeWithLoading(() => supplierAPI.delete(id))
+          message.success('Supplier deleted successfully')
+          fetchSuppliers()
+        } catch (error) {
+          console.error('Failed to delete supplier:', error)
+        }
       }
     })
   }
@@ -159,7 +148,9 @@ const SupplierMaster = () => {
         title="Supplier Master" 
         extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>Add Supplier</Button>}
       >
-        <Table columns={columns} dataSource={suppliers} />
+        <Spin spinning={loading}>
+          <Table columns={columns} dataSource={suppliers} />
+        </Spin>
       </Card>
 
       <Modal

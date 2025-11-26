@@ -1,80 +1,28 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, Switch, Tag, DatePicker } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, Switch, Tag, DatePicker, Spin } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { employeeAPI, useApiLoading } from '../../services/apiService'
 
 const EmployeeMaster = () => {
   const [form] = Form.useForm()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
-  const [employees, setEmployees] = useState([
-    {
-      key: 1,
-      employeeName: 'Arjun Mehta',
-      contactNo: '+91-9876543212',
-      emailId: 'arjun.mehta@company.com',
-      role: 'manager',
-      username: 'arjun.mehta',
-      password: '********',
-      dateOfJoin: '2023-01-15',
-      isActive: true
-    },
-    {
-      key: 2,
-      employeeName: 'Kavita Sharma',
-      contactNo: '+91-9123456787',
-      emailId: 'kavita.sharma@company.com',
-      role: 'engineer',
-      username: 'kavita.sharma',
-      password: '********',
-      dateOfJoin: '2023-03-20',
-      isActive: true
-    },
-    {
-      key: 3,
-      employeeName: 'Rohit Patel',
-      contactNo: '+91-9988776653',
-      emailId: 'rohit.patel@company.com',
-      role: 'technician',
-      username: 'rohit.patel',
-      password: '********',
-      dateOfJoin: '2023-05-10',
-      isActive: false
-    },
-    {
-      key: 4,
-      employeeName: 'Sneha Reddy',
-      contactNo: '+91-9555666777',
-      emailId: 'sneha.reddy@company.com',
-      role: 'supervisor',
-      username: 'sneha.reddy',
-      password: '********',
-      dateOfJoin: '2023-02-28',
-      isActive: true
-    },
-    {
-      key: 5,
-      employeeName: 'Manoj Kumar',
-      contactNo: '+91-9444555666',
-      emailId: 'manoj.kumar@company.com',
-      role: 'operator',
-      username: 'manoj.kumar',
-      password: '********',
-      dateOfJoin: '2023-04-05',
-      isActive: true
-    },
-    {
-      key: 6,
-      employeeName: 'Admin User',
-      contactNo: '+91-9000000000',
-      emailId: 'admin@company.com',
-      role: 'admin',
-      username: 'admin',
-      password: '********',
-      dateOfJoin: '2022-12-01',
-      isActive: true
+  const [employees, setEmployees] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
+
+  useEffect(() => {
+    fetchEmployees()
+  }, [])
+
+  const fetchEmployees = async () => {
+    try {
+      const data = await executeWithLoading(() => employeeAPI.getAll())
+      setEmployees(data.map(item => ({ ...item, key: item.id })))
+    } catch (error) {
+      console.error('Failed to fetch employees:', error)
     }
-  ])
+  }
 
   const columns = [
     { title: 'Employee Name', dataIndex: 'employeeName', key: 'employeeName' },
@@ -105,28 +53,33 @@ const EmployeeMaster = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
   ]
 
-  const handleSubmit = (values) => {
-    const formattedValues = {
-      ...values,
-      dateOfJoin: values.dateOfJoin ? values.dateOfJoin.format('YYYY-MM-DD') : null
+  const handleSubmit = async (values) => {
+    try {
+      const formattedValues = {
+        ...values,
+        dateOfJoin: values.dateOfJoin ? values.dateOfJoin.format('YYYY-MM-DD') : null
+      }
+      
+      if (editingRecord) {
+        await executeWithLoading(() => employeeAPI.update(editingRecord.id, formattedValues))
+        message.success('Employee updated successfully')
+      } else {
+        await executeWithLoading(() => employeeAPI.create(formattedValues))
+        message.success('Employee added successfully')
+      }
+      setIsModalVisible(false)
+      form.resetFields()
+      setEditingRecord(null)
+      fetchEmployees()
+    } catch (error) {
+      console.error('Failed to save employee:', error)
     }
-    
-    if (editingRecord) {
-      setEmployees(employees.map(e => e.key === editingRecord.key ? { ...formattedValues, key: editingRecord.key } : e))
-      message.success('Employee updated successfully')
-    } else {
-      setEmployees([...employees, { ...formattedValues, key: Date.now() }])
-      message.success('Employee added successfully')
-    }
-    setIsModalVisible(false)
-    form.resetFields()
-    setEditingRecord(null)
   }
 
   const handleEdit = (record) => {
@@ -138,7 +91,7 @@ const EmployeeMaster = () => {
     setIsModalVisible(true)
   }
 
-  const handleDelete = (key) => {
+  const handleDelete = (id) => {
     Modal.confirm({
       title: 'Delete Employee',
       icon: <ExclamationCircleOutlined />,
@@ -146,9 +99,14 @@ const EmployeeMaster = () => {
       okText: 'Yes, Delete',
       okButtonProps: { style: { backgroundColor: '#ff4d4f', color: '#ffffffff', borderColor: '#ff4d4f' } },
       cancelText: 'Cancel',
-      onOk() {
-        setEmployees(employees.filter(e => e.key !== key))
-        message.success('Employee deleted successfully')
+      async onOk() {
+        try {
+          await executeWithLoading(() => employeeAPI.delete(id))
+          message.success('Employee deleted successfully')
+          fetchEmployees()
+        } catch (error) {
+          console.error('Failed to delete employee:', error)
+        }
       }
     })
   }
@@ -159,7 +117,9 @@ const EmployeeMaster = () => {
         title="Employee Master" 
         extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>Add Employee</Button>}
       >
-        <Table columns={columns} dataSource={employees} />
+        <Spin spinning={loading}>
+          <Table columns={columns} dataSource={employees} />
+        </Spin>
       </Card>
 
       <Modal

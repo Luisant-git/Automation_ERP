@@ -1,11 +1,13 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, Divider } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, Divider, Spin } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, MinusCircleOutlined } from '@ant-design/icons'
+import { customerAPI, useApiLoading } from '../../services/apiService'
 
 const CustomerMaster = () => {
   const [form] = Form.useForm()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
+  const { loading, executeWithLoading } = useApiLoading()
   
   const states = [
     { code: '28', name: 'Andhra Pradesh' },
@@ -41,62 +43,18 @@ const CustomerMaster = () => {
   ]
   const [customers, setCustomers] = useState([])
 
-  React.useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('customers') || '[]')
-    if (saved.length === 0) {
-      const initial = [
-        {
-          key: 1,
-          id: 1,
-          name: 'Rajesh Kumar',
-          companyName: 'Tata Steel Ltd',
-          contactPerson: 'Amit Sharma',
-          contactNo: '+91-9876543210',
-          emailId: 'rajesh.kumar@tatasteel.com',
-          phoneNo: '+91-22-66658000',
-          gstNumber: '27AAACT2727Q1ZZ',
-          billingAddress: { address: 'Bombay House, 24 Homi Mody Street, Mumbai 400001', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' },
-          shippingAddresses: [
-            { address: 'Tata Steel Complex, Jamshedpur, Jharkhand 831001', state: 'Jharkhand', stateCode: '20', city: 'Jamshedpur', country: 'India' }
-          ]
-        },
-        {
-          key: 2,
-          id: 2,
-          name: 'Priya Patel',
-          companyName: 'Reliance Industries',
-          contactPerson: 'Suresh Patel',
-          contactNo: '+91-9123456789',
-          emailId: 'priya.patel@ril.com',
-          phoneNo: '+91-22-30386000',
-          gstNumber: '24AAACR5055K1Z5',
-          billingAddress: { address: '3rd Floor, Maker Chambers IV, Nariman Point, Mumbai 400021', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' },
-          shippingAddresses: [
-            { address: 'Reliance Corporate Park, Navi Mumbai 400701', state: 'Maharashtra', stateCode: '27', city: 'Navi Mumbai', country: 'India' }
-          ]
-        },
-        {
-          key: 3,
-          id: 3,
-          name: 'Vikram Singh',
-          companyName: 'Larsen & Toubro',
-          contactPerson: 'Ravi Kumar',
-          contactNo: '+91-9988776655',
-          emailId: 'vikram.singh@larsentoubro.com',
-          phoneNo: '+91-44-28267000',
-          gstNumber: '33AAACL0072A1ZG',
-          billingAddress: { address: 'L&T House, N.M. Marg, Ballard Estate, Mumbai 400001', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' },
-          shippingAddresses: [
-            { address: 'L&T House, Ballard Estate, Mumbai 400001', state: 'Maharashtra', stateCode: '27', city: 'Mumbai', country: 'India' }
-          ]
-        }
-      ]
-      localStorage.setItem('customers', JSON.stringify(initial))
-      setCustomers(initial)
-    } else {
-      setCustomers(saved)
-    }
+  useEffect(() => {
+    fetchCustomers()
   }, [])
+
+  const fetchCustomers = async () => {
+    try {
+      const data = await executeWithLoading(() => customerAPI.getAll())
+      setCustomers(data.map(item => ({ ...item, key: item.id })))
+    } catch (error) {
+      console.error('Failed to fetch customers:', error)
+    }
+  }
 
   const columns = [
     { title: 'Name', dataIndex: 'name', key: 'name' },
@@ -116,27 +74,28 @@ const CustomerMaster = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
   ]
 
-  const handleSubmit = (values) => {
-    let updated
-    if (editingRecord) {
-      updated = customers.map(c => c.key === editingRecord.key ? { ...values, key: editingRecord.key, id: editingRecord.id } : c)
-      message.success('Customer updated successfully')
-    } else {
-      const newId = Date.now()
-      updated = [...customers, { ...values, key: newId, id: newId }]
-      message.success('Customer added successfully')
+  const handleSubmit = async (values) => {
+    try {
+      if (editingRecord) {
+        await executeWithLoading(() => customerAPI.update(editingRecord.id, values))
+        message.success('Customer updated successfully')
+      } else {
+        await executeWithLoading(() => customerAPI.create(values))
+        message.success('Customer added successfully')
+      }
+      setIsModalVisible(false)
+      form.resetFields()
+      setEditingRecord(null)
+      fetchCustomers()
+    } catch (error) {
+      console.error('Failed to save customer:', error)
     }
-    setCustomers(updated)
-    localStorage.setItem('customers', JSON.stringify(updated))
-    setIsModalVisible(false)
-    form.resetFields()
-    setEditingRecord(null)
   }
 
   const handleEdit = (record) => {
@@ -145,7 +104,7 @@ const CustomerMaster = () => {
     setIsModalVisible(true)
   }
 
-  const handleDelete = (key) => {
+  const handleDelete = (id) => {
     Modal.confirm({
       title: 'Delete Customer',
       icon: <ExclamationCircleOutlined />,
@@ -153,11 +112,14 @@ const CustomerMaster = () => {
       okText: 'Yes, Delete',
       okButtonProps: { style: { backgroundColor: '#ff4d4f', color: '#ffffffff', borderColor: '#ff4d4f' } },
       cancelText: 'Cancel',
-      onOk() {
-        const updated = customers.filter(c => c.key !== key)
-        setCustomers(updated)
-        localStorage.setItem('customers', JSON.stringify(updated))
-        message.success('Customer deleted successfully')
+      async onOk() {
+        try {
+          await executeWithLoading(() => customerAPI.delete(id))
+          message.success('Customer deleted successfully')
+          fetchCustomers()
+        } catch (error) {
+          console.error('Failed to delete customer:', error)
+        }
       }
     })
   }
@@ -168,7 +130,9 @@ const CustomerMaster = () => {
         title="Customer Master" 
         extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>Add Customer</Button>}
       >
-        <Table columns={columns} dataSource={customers} />
+        <Spin spinning={loading}>
+          <Table columns={columns} dataSource={customers} />
+        </Spin>
       </Card>
 
       <Modal

@@ -1,18 +1,27 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, InputNumber } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, InputNumber, Spin } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { taxRateAPI, useApiLoading } from '../../services/apiService'
 
 const TaxMaster = () => {
   const [form] = Form.useForm()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
-  const [taxes, setTaxes] = useState([
-    { key: 1, code: 'GST18', name: 'GST 18%', rate: 18, description: 'Standard GST rate' },
-    { key: 2, code: 'GST12', name: 'GST 12%', rate: 12, description: 'Reduced GST rate' },
-    { key: 3, code: 'GST5', name: 'GST 5%', rate: 5, description: 'Lower GST rate' },
-    { key: 4, code: 'GST0', name: 'GST 0%', rate: 0, description: 'Zero rated GST' },
-    { key: 5, code: 'EXEMPT', name: 'Exempt', rate: 0, description: 'Tax exempt items' }
-  ])
+  const [taxes, setTaxes] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
+
+  useEffect(() => {
+    fetchTaxes()
+  }, [])
+
+  const fetchTaxes = async () => {
+    try {
+      const data = await executeWithLoading(() => taxRateAPI.getAll())
+      setTaxes(data.map(item => ({ ...item, key: item.id })))
+    } catch (error) {
+      console.error('Failed to fetch taxes:', error)
+    }
+  }
 
   const columns = [
     { title: 'Code', dataIndex: 'code', key: 'code', width: 100 },
@@ -26,23 +35,28 @@ const TaxMaster = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
   ]
 
-  const handleSubmit = (values) => {
-    if (editingRecord) {
-      setTaxes(taxes.map(t => t.key === editingRecord.key ? { ...values, key: editingRecord.key } : t))
-      message.success('Tax updated successfully')
-    } else {
-      setTaxes([...taxes, { ...values, key: Date.now() }])
-      message.success('Tax added successfully')
+  const handleSubmit = async (values) => {
+    try {
+      if (editingRecord) {
+        await executeWithLoading(() => taxRateAPI.update(editingRecord.id, values))
+        message.success('Tax updated successfully')
+      } else {
+        await executeWithLoading(() => taxRateAPI.create(values))
+        message.success('Tax added successfully')
+      }
+      setIsModalVisible(false)
+      form.resetFields()
+      setEditingRecord(null)
+      fetchTaxes()
+    } catch (error) {
+      console.error('Failed to save tax:', error)
     }
-    setIsModalVisible(false)
-    form.resetFields()
-    setEditingRecord(null)
   }
 
   const handleEdit = (record) => {
@@ -51,16 +65,21 @@ const TaxMaster = () => {
     setIsModalVisible(true)
   }
 
-  const handleDelete = (key) => {
+  const handleDelete = (id) => {
     Modal.confirm({
       title: 'Delete Tax',
       icon: <ExclamationCircleOutlined />,
       content: 'Are you sure you want to delete this tax?',
       okText: 'Yes, Delete',
       okButtonProps: { danger: true },
-      onOk() {
-        setTaxes(taxes.filter(t => t.key !== key))
-        message.success('Tax deleted successfully')
+      async onOk() {
+        try {
+          await executeWithLoading(() => taxRateAPI.delete(id))
+          message.success('Tax deleted successfully')
+          fetchTaxes()
+        } catch (error) {
+          console.error('Failed to delete tax:', error)
+        }
       }
     })
   }
@@ -71,7 +90,9 @@ const TaxMaster = () => {
         title="Tax Master" 
         extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>Add Tax</Button>}
       >
-        <Table columns={columns} dataSource={taxes} />
+        <Spin spinning={loading}>
+          <Table columns={columns} dataSource={taxes} />
+        </Spin>
       </Card>
 
       <Modal

@@ -1,29 +1,27 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Spin } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { categoryAPI, useApiLoading } from '../../services/apiService'
 
 const CategoryMaster = () => {
   const [form] = Form.useForm()
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const [categories, setCategories] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
 
-  React.useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('categories') || '[]')
-    if (saved.length === 0) {
-      const initial = [
-        { key: 1, id: 1, code: 'RM', name: 'Raw Material', description: 'Basic materials for production' },
-        { key: 2, id: 2, code: 'FG', name: 'Finished Goods', description: 'Completed products ready for sale' },
-        { key: 3, id: 3, code: 'SP', name: 'Spare Parts', description: 'Replacement parts and components' },
-        { key: 4, id: 4, code: 'CON', name: 'Consumables', description: 'Items consumed during operations' },
-        { key: 5, id: 5, code: 'TOOL', name: 'Tools', description: 'Equipment and tools' }
-      ]
-      localStorage.setItem('categories', JSON.stringify(initial))
-      setCategories(initial)
-    } else {
-      setCategories(saved)
-    }
+  useEffect(() => {
+    fetchCategories()
   }, [])
+
+  const fetchCategories = async () => {
+    try {
+      const data = await executeWithLoading(() => categoryAPI.getAll())
+      setCategories(data.map(item => ({ ...item, key: item.id })))
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+    }
+  }
 
   const columns = [
     { title: 'Code', dataIndex: 'code', key: 'code', width: 100 },
@@ -36,27 +34,28 @@ const CategoryMaster = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
   ]
 
-  const handleSubmit = (values) => {
-    let updated
-    if (editingRecord) {
-      updated = categories.map(c => c.key === editingRecord.key ? { ...values, key: editingRecord.key, id: editingRecord.id } : c)
-      message.success('Category updated successfully')
-    } else {
-      const newId = Date.now()
-      updated = [...categories, { ...values, key: newId, id: newId }]
-      message.success('Category added successfully')
+  const handleSubmit = async (values) => {
+    try {
+      if (editingRecord) {
+        await executeWithLoading(() => categoryAPI.update(editingRecord.id, values))
+        message.success('Category updated successfully')
+      } else {
+        await executeWithLoading(() => categoryAPI.create(values))
+        message.success('Category added successfully')
+      }
+      setIsModalVisible(false)
+      form.resetFields()
+      setEditingRecord(null)
+      fetchCategories()
+    } catch (error) {
+      console.error('Failed to save category:', error)
     }
-    setCategories(updated)
-    localStorage.setItem('categories', JSON.stringify(updated))
-    setIsModalVisible(false)
-    form.resetFields()
-    setEditingRecord(null)
   }
 
   const handleEdit = (record) => {
@@ -65,18 +64,21 @@ const CategoryMaster = () => {
     setIsModalVisible(true)
   }
 
-  const handleDelete = (key) => {
+  const handleDelete = (id) => {
     Modal.confirm({
       title: 'Delete Category',
       icon: <ExclamationCircleOutlined />,
       content: 'Are you sure you want to delete this category?',
       okText: 'Yes, Delete',
       okButtonProps: { danger: true },
-      onOk() {
-        const updated = categories.filter(c => c.key !== key)
-        setCategories(updated)
-        localStorage.setItem('categories', JSON.stringify(updated))
-        message.success('Category deleted successfully')
+      async onOk() {
+        try {
+          await executeWithLoading(() => categoryAPI.delete(id))
+          message.success('Category deleted successfully')
+          fetchCategories()
+        } catch (error) {
+          console.error('Failed to delete category:', error)
+        }
       }
     })
   }
@@ -87,7 +89,9 @@ const CategoryMaster = () => {
         title="Category Master" 
         extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>Add Category</Button>}
       >
-        <Table columns={columns} dataSource={categories} />
+        <Spin spinning={loading}>
+          <Table columns={columns} dataSource={categories} />
+        </Spin>
       </Card>
 
       <Modal

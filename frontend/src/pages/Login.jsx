@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Form, Input, Button, Card, Typography, Checkbox, message } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
@@ -8,16 +8,36 @@ const { Title, Text } = Typography
 
 const Login = ({ onLogin }) => {
   const navigate = useNavigate()
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (values) => {
-    // Static login validation
-    if (values.username === 'admin@gmail.com' && values.password === 'Admin@123') {
+  const handleSubmit = async (values) => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: values.username,
+          password: values.password,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Invalid credentials')
+      }
+
+      const data = await response.json()
       localStorage.setItem('isAuthenticated', 'true')
-      localStorage.setItem('user', JSON.stringify({ username: values.username }))
+      localStorage.setItem('token', data.access_token)
+      localStorage.setItem('user', JSON.stringify(data.user))
       onLogin && onLogin()
       navigate('/')
-    } else {
-      message.error('Invalid credentials!')
+    } catch (error) {
+      message.error(error.message || 'Login failed!')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -49,12 +69,13 @@ const Login = ({ onLogin }) => {
         <Form onFinish={handleSubmit} layout="vertical">
           <Form.Item
             name="username"
-            rules={[{ required: true, message: 'Please enter your username!' }]}
+            rules={[{ required: true, message: 'Please enter your email!' }]}
           >
             <Input
               prefix={<UserOutlined />}
-              placeholder="Username"
+              placeholder="Email"
               size="large"
+              type="email"
             />
           </Form.Item>
 
@@ -77,7 +98,7 @@ const Login = ({ onLogin }) => {
           </Form.Item>
 
           <Form.Item>
-            <Button type="primary" htmlType="submit" size="large" block>
+            <Button type="primary" htmlType="submit" size="large" block loading={loading}>
               Sign In
             </Button>
           </Form.Item>

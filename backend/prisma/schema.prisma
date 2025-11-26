@@ -1,9 +1,154 @@
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    Int     @id @default(autoincrement())
+  email String  @unique
+  password String
+  name  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Ledger {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+  code  String  @unique
+  type  String
+  group String?
+  subgroup String?
+  openingBalance Float?
+  balanceType String?
+  isControl Boolean @default(false)
+  gstTag String?
+  bankReco Boolean @default(false)
+  currency String @default("INR")
+  branch String?
+  costCenter String?
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OpeningStockEntry {
+  id    Int     @id @default(autoincrement())
+  materialId Int
+  material Material @relation(fields: [materialId], references: [id])
+  quantity Float
+  rate Float
+  amount Float
+  serialNumber String?
+  date DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaxRate {
+  id    Int     @id @default(autoincrement())
+  code  String  @unique
+  name  String
+  rate  Float
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Brand {
+  id    Int     @id @default(autoincrement())
+  code  String  @unique
+  name  String
+  description String?
+  materials Material[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id    Int     @id @default(autoincrement())
+  code  String  @unique
+  name  String  @unique
+  description String?
+  materials Material[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Material {
+  id    Int     @id @default(autoincrement())
+  itemName  String  @unique
+  itemCode  String  @unique
+  hsnCode String?
+  itemCategory String?
+  brand String?
+  categoryId Int
+  category Category @relation(fields: [categoryId], references: [id])
+  brandId Int
+  brandRelation Brand @relation(fields: [brandId], references: [id])
+  unit String?
+  tax Float?
+  purchaseRate Float?
+  sellingRate Float?
+  isActive Boolean @default(true)
+  description String?
+  openingStockEntries OpeningStockEntry[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Employee {
+  id    Int     @id @default(autoincrement())
+  name  String
+  employeeName String?
+  email String  @unique
+  contactNo String?
+  emailId String?
+  phone String?
+  address String?
+  designation String?
+  role String?
+  dateOfJoin String?
+  username String?
+  password String?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id    Int     @id @default(autoincrement())
+  name  String
+  companyName String?
+  contactPerson String?
+  contactNo String?
+  emailId String?
+  phoneNo String?
+  gstNumber String?
+  billingAddress Json?
+  shippingAddresses Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Supplier {
+  id    Int     @id @default(autoincrement())
+  name  String
+  companyName String?
+  contactPerson String?
+  email String  @unique
+  phone String?
+  gstNumber String?
+  address String?
+  city  String?
+  state String?
+  stateCode String?
+  country String?
+  pincode String?
+  contact String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

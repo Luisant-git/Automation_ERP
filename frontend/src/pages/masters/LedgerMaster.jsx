@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, InputNumber, Switch } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, Row, Col, Space, Table, Modal, message, Select, InputNumber, Switch, Spin } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { ledgerAPI, useApiLoading } from '../../services/apiService'
 
 const LedgerMaster = () => {
   const [form] = Form.useForm()
@@ -10,6 +11,8 @@ const LedgerMaster = () => {
   const [selectedGroup, setSelectedGroup] = useState('')
   const [isControlAccount, setIsControlAccount] = useState(false)
   const [showBankReco, setShowBankReco] = useState(false)
+  const [ledgers, setLedgers] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
   
   // Account Groups data
   const accountGroups = {
@@ -54,104 +57,18 @@ const LedgerMaster = () => {
     'Direct Expenses': ['Manufacturing', 'Labor Cost'],
     'Indirect Expenses': ['Office Expenses', 'Marketing Expenses']
   }
-  const [ledgers, setLedgers] = useState([
-    {
-      key: 1,
-      code: '1001',
-      name: 'Cash in Hand',
-      type: 'Asset',
-      group: 'Current Assets',
-      subgroup: 'Cash & Bank',
-      openingBalance: 50000,
-      balanceType: 'Dr',
-      isControl: false,
-      gstTag: '',
-      bankReco: false,
-      branch: 'Head Office',
-      costCenter: 'Admin',
-      currency: 'INR'
-    },
-    {
-      key: 2,
-      code: '1002',
-      name: 'Bank Account - SBI',
-      type: 'Asset',
-      group: 'Current Assets',
-      subgroup: 'Cash & Bank',
-      openingBalance: 250000,
-      balanceType: 'Dr',
-      isControl: false,
-      gstTag: '',
-      bankReco: true,
-      branch: 'Head Office',
-      costCenter: 'Admin',
-      currency: 'INR'
-    },
-    {
-      key: 3,
-      code: '2001',
-      name: 'Accounts Receivable',
-      type: 'Asset',
-      group: 'Current Assets',
-      subgroup: 'Debtors',
-      openingBalance: 150000,
-      balanceType: 'Dr',
-      isControl: true,
-      gstTag: 'Taxable',
-      bankReco: false,
-      branch: 'Head Office',
-      costCenter: 'Sales',
-      currency: 'INR'
-    },
-    {
-      key: 4,
-      code: '3001',
-      name: 'Accounts Payable',
-      type: 'Liability',
-      group: 'Current Liabilities',
-      subgroup: 'Creditors',
-      openingBalance: 80000,
-      balanceType: 'Cr',
-      isControl: true,
-      gstTag: 'Taxable',
-      bankReco: false,
-      branch: 'Head Office',
-      costCenter: 'Purchase',
-      currency: 'INR'
-    },
-    {
-      key: 5,
-      code: '4001',
-      name: 'Sales Revenue',
-      type: 'Income',
-      group: 'Direct Income',
-      subgroup: 'Sales',
-      openingBalance: 0,
-      balanceType: 'Cr',
-      isControl: false,
-      gstTag: 'Taxable',
-      bankReco: false,
-      branch: 'Head Office',
-      costCenter: 'Sales',
-      currency: 'INR'
-    },
-    {
-      key: 6,
-      code: '5001',
-      name: 'Office Rent',
-      type: 'Expense',
-      group: 'Indirect Expenses',
-      subgroup: 'Administrative',
-      openingBalance: 0,
-      balanceType: 'Dr',
-      isControl: false,
-      gstTag: 'Taxable',
-      bankReco: false,
-      branch: 'Head Office',
-      costCenter: 'Admin',
-      currency: 'INR'
+  useEffect(() => {
+    fetchLedgers()
+  }, [])
+
+  const fetchLedgers = async () => {
+    try {
+      const data = await executeWithLoading(() => ledgerAPI.getAll())
+      setLedgers(data.map(item => ({ ...item, key: item.id })))
+    } catch (error) {
+      console.error('Failed to fetch ledgers:', error)
     }
-  ])
+  }
 
   const columns = [
     { title: 'Code', dataIndex: 'code', key: 'code', width: 80 },
@@ -167,34 +84,27 @@ const LedgerMaster = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
   ]
 
-  const handleSubmit = (values) => {
-    // Check for unique code
-    const codeExists = ledgers.some(l => 
-      l.code === values.code && (!editingRecord || l.key !== editingRecord.key)
-    )
-    
-    if (codeExists) {
-      message.error('Code must be unique. This code already exists.')
-      return
+  const handleSubmit = async (values) => {
+    try {
+      if (editingRecord) {
+        await executeWithLoading(() => ledgerAPI.update(editingRecord.id, values))
+        message.success('Ledger updated successfully')
+      } else {
+        await executeWithLoading(() => ledgerAPI.create(values))
+        message.success('Ledger added successfully')
+      }
+      setIsModalVisible(false)
+      handleCancel()
+      fetchLedgers()
+    } catch (error) {
+      console.error('Failed to save ledger:', error)
     }
-    
-    console.log('Form Data:', JSON.stringify(values, null, 2))
-    
-    if (editingRecord) {
-      setLedgers(ledgers.map(l => l.key === editingRecord.key ? { ...values, key: editingRecord.key } : l))
-      message.success('Ledger updated successfully')
-    } else {
-      setLedgers([...ledgers, { ...values, key: Date.now() }])
-      message.success('Ledger added successfully')
-    }
-    setIsModalVisible(false)
-    handleCancel()
   }
   
   const handleCancel = () => {
@@ -252,7 +162,7 @@ const LedgerMaster = () => {
     setIsModalVisible(true)
   }
 
-  const handleDelete = (key) => {
+  const handleDelete = (id) => {
     Modal.confirm({
       title: 'Delete Ledger',
       icon: <ExclamationCircleOutlined />,
@@ -260,9 +170,14 @@ const LedgerMaster = () => {
       okText: 'Yes, Delete',
       okButtonProps: { style: { backgroundColor: '#ff4d4f', color: '#ffffffff', borderColor: '#ff4d4f' } },
       cancelText: 'Cancel',
-      onOk() {
-        setLedgers(ledgers.filter(l => l.key !== key))
-        message.success('Ledger deleted successfully')
+      async onOk() {
+        try {
+          await executeWithLoading(() => ledgerAPI.delete(id))
+          message.success('Ledger deleted successfully')
+          fetchLedgers()
+        } catch (error) {
+          console.error('Failed to delete ledger:', error)
+        }
       }
     })
   }
@@ -273,7 +188,9 @@ const LedgerMaster = () => {
         title="Ledger Master" 
         extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>Add Ledger</Button>}
       >
-        <Table columns={columns} dataSource={ledgers} scroll={{ x: 1000 }} />
+        <Spin spinning={loading}>
+          <Table columns={columns} dataSource={ledgers} scroll={{ x: 1000 }} />
+        </Spin>
       </Card>
 
       <Modal
