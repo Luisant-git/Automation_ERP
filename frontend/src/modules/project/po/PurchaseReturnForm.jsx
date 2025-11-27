@@ -17,6 +17,7 @@ import {
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { purchaseReturnAPI, purchaseOrderEntryAPI, useApiLoading } from '../../../services/apiService'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -25,38 +26,52 @@ export default function PurchaseReturnForm({ editingReturn, onReturnSaved }) {
   const [form] = Form.useForm()
   const [items, setItems] = useState([])
   const [purchaseEntries, setPurchaseEntries] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
 
   // Generate Purchase Return Number
-  const generateReturnNumber = () => {
-    const prefix = 'PR-'
-    const existing = JSON.parse(localStorage.getItem('purchaseReturns') || '[]')
-    const numbers = existing.map(entry => parseInt(entry.returnNumber?.replace(prefix, '') || '0'))
-    const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
-    return `${prefix}${String(lastNumber + 1).padStart(4, '0')}`
+  const generateReturnNumber = async () => {
+    try {
+      const existing = await executeWithLoading(() => purchaseReturnAPI.getAll())
+      const prefix = 'PR-'
+      const numbers = existing.map(entry => parseInt(entry.returnNumber?.replace(prefix, '') || '0'))
+      const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
+      return `${prefix}${String(lastNumber + 1).padStart(4, '0')}`
+    } catch (error) {
+      const prefix = 'PR-'
+      return `${prefix}0001`
+    }
   }
 
-  // Load purchase entries from localStorage
-  const loadPurchaseEntries = () => {
-    const savedEntries = JSON.parse(localStorage.getItem('purchaseOrderEntries') || '[]')
-    setPurchaseEntries(savedEntries)
+  // Load purchase entries from API
+  const loadPurchaseEntries = async () => {
+    try {
+      const savedEntries = await executeWithLoading(() => purchaseOrderEntryAPI.getAll())
+      setPurchaseEntries(savedEntries)
+    } catch (error) {
+      message.error('Failed to load purchase entries')
+    }
   }
 
   // Initialize form
   useEffect(() => {
-    loadPurchaseEntries()
-    if (editingReturn) {
-      form.setFieldsValue({
-        ...editingReturn,
-        returnDate: editingReturn.returnDate ? dayjs(editingReturn.returnDate) : dayjs()
-      })
-      setItems(editingReturn.items || [])
-    } else {
-      form.setFieldsValue({
-        returnNumber: generateReturnNumber(),
-        returnDate: dayjs(),
-        returnStatus: 1
-      })
+    const initializeForm = async () => {
+      await loadPurchaseEntries()
+      if (editingReturn) {
+        form.setFieldsValue({
+          ...editingReturn,
+          returnDate: editingReturn.returnDate ? dayjs(editingReturn.returnDate) : dayjs()
+        })
+        setItems(editingReturn.items || [])
+      } else {
+        const returnNumber = await generateReturnNumber()
+        form.setFieldsValue({
+          returnNumber: returnNumber,
+          returnDate: dayjs(),
+          returnStatus: 1
+        })
+      }
     }
+    initializeForm()
   }, [editingReturn])
 
   // Handle purchase entry selection
@@ -243,28 +258,25 @@ export default function PurchaseReturnForm({ editingReturn, onReturnSaved }) {
   const handleSubmit = async (values) => {
     try {
       const returnData = {
-        ...values,
-        items,
-        ...totals,
+        returnNumber: values.returnNumber,
+        purchaseInvoiceNumber: values.purchaseInvoiceNumber,
+        supplierId: values.supplierId,
         returnDate: values.returnDate?.format('YYYY-MM-DD'),
-        createdDate: new Date().toISOString(),
-        createdBy: 1,
-        companyId: 1,
-        isActive: true
+        reason: values.returnReason,
+        lineItems: JSON.stringify(items),
+        subtotal: totals.totalAmount,
+        totalDiscount: 0,
+        gstDetails: JSON.stringify({}),
+        totalAmount: totals.totalAmount,
+        notes: values.remarks,
+        status: values.returnStatus === 1 ? 'Draft' : values.returnStatus === 2 ? 'Submitted' : 'Approved'
       }
 
-      const existingReturns = JSON.parse(localStorage.getItem('purchaseReturns') || '[]')
-
       if (editingReturn) {
-        const updatedReturns = existingReturns.map(returnItem =>
-          returnItem.id === editingReturn.id ? { ...returnData, id: editingReturn.id } : returnItem
-        )
-        localStorage.setItem('purchaseReturns', JSON.stringify(updatedReturns))
+        await executeWithLoading(() => purchaseReturnAPI.update(editingReturn.id, returnData))
         message.success('Purchase Return updated successfully!')
       } else {
-        const newReturn = { id: Date.now(), ...returnData }
-        existingReturns.push(newReturn)
-        localStorage.setItem('purchaseReturns', JSON.stringify(existingReturns))
+        await executeWithLoading(() => purchaseReturnAPI.create(returnData))
         message.success('Purchase Return saved successfully!')
       }
 
@@ -310,11 +322,16 @@ export default function PurchaseReturnForm({ editingReturn, onReturnSaved }) {
                     optionFilterProp="children"
                     onChange={handlePurchaseEntrySelect}
                   >
-                    {purchaseEntries.map(entry => (
-                      <Option key={entry.id} value={entry.purchaseInvoiceNumber}>
-                        {entry.purchaseInvoiceNumber}
-                      </Option>
-                    ))}
+                    {purchaseEntries
+                      .filter(entry => entry.status === 'Approved' || entry.returnStatus === 3)
+                      .map(entry => {
+                        const invoiceNum = entry.purchaseInvoiceNumber || entry.invoiceNumber || `PI-${entry.id}`
+                        return (
+                          <Option key={entry.id} value={invoiceNum}>
+                            {invoiceNum} - {entry.purchaseOrderId || entry.poNumber || 'N/A'}
+                          </Option>
+                        )
+                      })}
                   </Select>
                 </Form.Item>
                 <Form.Item name="poNumber" label="PO Number">

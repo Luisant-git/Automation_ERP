@@ -149,6 +149,106 @@ model Supplier {
   country String?
   pincode String?
   contact String?
+  purchaseOrders PurchaseOrder[]
+  purchaseEntries PurchaseEntry[]
+  purchaseReturns PurchaseReturn[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Quotation {
+  id    Int     @id @default(autoincrement())
+  quotationNumber String @unique
+  baseNumber String
+  version Int @default(0)
+  quotationId String
+  quotationType String
+  quotationDate DateTime
+  validityDays Int
+  customerId Int
+  projectName String?
+  description String?
+  status String @default("Draft")
+  workOrderNumber String?
+  lineItems Json
+  subtotal Float
+  totalDiscount Float @default(0)
+  gstDetails Json
+  totalAmount Float
+  termsAndConditions String?
+  excelFile Json?
+  createdDate DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PurchaseOrder {
+  id    Int     @id @default(autoincrement())
+  purchaseOrderNumber String @unique
+  baseNumber String
+  version Int @default(0)
+  purchaseOrderId String
+  purchaseOrderType String
+  purchaseOrderDate DateTime
+  validityDays Int
+  supplierId Int
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  projectName String?
+  description String?
+  status String @default("Draft")
+  workOrderNumber String?
+  lineItems Json
+  subtotal Float
+  totalDiscount Float @default(0)
+  gstDetails Json
+  totalAmount Float
+  termsAndConditions String?
+  excelFile Json?
+  purchaseEntries PurchaseEntry[]
+  createdDate DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PurchaseEntry {
+  id    Int     @id @default(autoincrement())
+  purchaseInvoiceNumber String @unique
+  purchaseOrderId String
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [purchaseOrderNumber])
+  supplierId Int
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  invoiceDate DateTime
+  dueDate DateTime?
+  referenceNumber String?
+  lineItems Json
+  subtotal Float
+  totalDiscount Float @default(0)
+  gstDetails Json
+  totalAmount Float
+  notes String?
+  status String @default("Draft")
+  createdDate DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PurchaseReturn {
+  id    Int     @id @default(autoincrement())
+  returnNumber String @unique
+  purchaseInvoiceNumber String?
+  supplierId Int
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  returnDate DateTime
+  returnType String?
+  reason String?
+  lineItems Json
+  subtotal Float
+  totalDiscount Float @default(0)
+  gstDetails Json
+  totalAmount Float
+  notes String?
+  status String @default("Draft")
+  createdDate DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 import { calculateGST, INDIAN_STATES } from '../../services/gstCalculator'
+import { quotationAPI, customerAPI, materialAPI, useApiLoading } from '../../services/apiService'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -33,16 +34,16 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
   const [excelFile, setExcelFile] = useState(null)
   const [customers, setCustomers] = useState([])
   const [materials, setMaterials] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
   const [showWorkOrder, setShowWorkOrder] = useState(false)
   const [quotationType, setQuotationType] = useState('project')
 
   const gstRate = 18
 
   // Generate base quotation number
-  const generateBaseNumber = (type = 'project') => {
+  const generateBaseNumber = (type = 'project', existingQuotations = []) => {
     const prefix = type === 'project' ? 'PRJ' : type === 'trade' ? 'TRD' : 'SHF'
-    const existing = JSON.parse(localStorage.getItem('quotations') || '[]')
-    const sameType = existing.filter(q => q.baseNumber?.startsWith(prefix))
+    const sameType = existingQuotations.filter(q => q.baseNumber?.startsWith(prefix))
     const numbers = sameType.map(q => parseInt(q.baseNumber?.replace(prefix, '') || '0'))
     const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
     return `${prefix}${String(lastNumber + 1).padStart(3, '0')}`
@@ -52,19 +53,31 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
   const handleQuotationTypeChange = (type) => {
     setQuotationType(type)
     if (!editData?.id) {
-      const newBase = generateBaseNumber(type)
-      setBaseNumber(newBase)
-      setQuotationNumber(newBase)
-      form.setFieldsValue({ quotationNumber: newBase })
+      executeWithLoading(() => quotationAPI.getAll()).then(quotationsData => {
+        const newBase = generateBaseNumber(type, quotationsData)
+        setBaseNumber(newBase)
+        setQuotationNumber(newBase)
+        form.setFieldsValue({ quotationNumber: newBase })
+      })
     }
   }
 
   // Initialize quotation number on component mount
   React.useEffect(() => {
-    const savedCustomers = JSON.parse(localStorage.getItem('customers') || '[]')
-    setCustomers(savedCustomers)
-    const savedMaterials = JSON.parse(localStorage.getItem('materials') || '[]')
-    setMaterials(savedMaterials)
+    const fetchData = async () => {
+      try {
+        const [customersData, materialsData] = await Promise.all([
+          executeWithLoading(() => customerAPI.getAll()),
+          executeWithLoading(() => materialAPI.getAll())
+        ])
+        setCustomers(customersData)
+        setMaterials(materialsData)
+      } catch (error) {
+        console.error('Failed to fetch data:', error)
+      }
+    }
+    
+    fetchData()
     
     // Load company state from settings or default
     const companySettings = JSON.parse(localStorage.getItem('companySettings') || '{}')
@@ -82,12 +95,15 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
     }
     
     if (!editData?.quotationNumber) {
-      const newBase = generateBaseNumber('project')
-      const newVersion = 1
-      setBaseNumber(newBase)
-      setVersion(newVersion)
-      setQuotationNumber(newBase)
-      form.setFieldsValue({ quotationNumber: newBase })
+      // Generate quotation number after fetching existing quotations
+      executeWithLoading(() => quotationAPI.getAll()).then(quotationsData => {
+        const newBase = generateBaseNumber('project', quotationsData)
+        const newVersion = 0
+        setBaseNumber(newBase)
+        setVersion(newVersion)
+        setQuotationNumber(newBase)
+        form.setFieldsValue({ quotationNumber: newBase })
+      })
     } else {
       const base = editData.baseNumber || editData.quotationNumber.split('-')[0]
       const ver = editData.version || 1
@@ -105,7 +121,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
       if (editData.lineItems) {
         setLineItems(editData.lineItems)
         // Get customer state for calculation
-        const customer = savedCustomers.find(c => c.id === editData.customerId)
+        const customer = customers.find(c => c.id === editData.customerId)
         const custState = customer?.billingAddress?.state || ''
         const custStateCode = customer?.billingAddress?.stateCode || ''
         setCustomerState(custState)
@@ -154,8 +170,9 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
             updated = {
               ...updated,
               itemName: material.itemName || '',
-              category: material.itemCategory || '',
-              tax: material.tax || 0
+              category: material.category?.name || material.itemCategory || '',
+              unitPrice: material.sellingRate || 0,
+              tax: material.tax || 18
             }
           }
         }
@@ -221,107 +238,58 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
 
   const handleSubmit = async (values) => {
     try {
-      // Validate Work Order Number if status is Approved
       if (values.status === 'Approved' && !values.workOrderNumber) {
         message.error('Work Order Number is required before approving quotation')
         return
       }
       
-      const existing = JSON.parse(localStorage.getItem('quotations') || '[]')
+      const quotationData = {
+        ...values,
+        lineItems,
+        subtotal,
+        gstDetails,
+        totalAmount,
+        quotationNumber: quotationNumber,
+        baseNumber: baseNumber,
+        version: version,
+        quotationId: editData?.quotationId || quotationNumber,
+        createdDate: editData?.createdDate || dayjs().format('YYYY-MM-DD'),
+        excelFile: excelFile,
+        quotationDate: values.quotationDate?.format('YYYY-MM-DD')
+      }
       
       if (onSubmit) {
-        const quotationData = {
-          ...values,
-          lineItems,
-          subtotal,
-          gstDetails,
-          totalAmount,
-          quotationNumber: quotationNumber,
-          baseNumber: baseNumber,
-          version: version,
-          quotationId: editData?.quotationId || quotationNumber,
-          createdDate: editData?.createdDate || dayjs().format('YYYY-MM-DD'),
-          excelFile: excelFile
-        }
         onSubmit(quotationData)
       } else if (editData?.id) {
-        // Check if only status changed
+        // Check if line items or excel file changed to create new version
         const lineItemsChanged = JSON.stringify(editData.lineItems) !== JSON.stringify(lineItems)
         const excelChanged = JSON.stringify(editData.excelFile) !== JSON.stringify(excelFile)
-        const onlyStatusChanged = !lineItemsChanged && !excelChanged
         
-        if (onlyStatusChanged) {
-          // Update existing quotation in place
-          const quotationData = {
-            ...values,
-            lineItems,
-            subtotal,
-            gstDetails,
-            totalAmount,
-            quotationNumber: quotationNumber,
-            baseNumber: baseNumber,
-            version: version,
-            quotationId: editData.quotationId || quotationNumber,
-            createdDate: editData.createdDate || dayjs().format('YYYY-MM-DD'),
-            excelFile: excelFile
-          }
-          const updated = existing.map(q => 
-            q.id === editData.id ? { ...q, ...quotationData, id: editData.id } : q
-          )
-          localStorage.setItem('quotations', JSON.stringify(updated))
-          message.success('Quotation updated successfully!')
-          navigate('/quotations')
-        } else {
-          // Create new version when line items or excel changed
-          const sameBase = existing.filter(q => q.baseNumber === editData.baseNumber)
-          const versions = sameBase.map(q => q.version || 0)
-          const maxVer = versions.length > 0 ? Math.max(...versions) : 0
-          const newVersion = maxVer + 1
+        if (lineItemsChanged || excelChanged) {
+          // Create new version - always start from V1 for first edit
+          const newVersion = 1
           const newQuotationNumber = `${editData.baseNumber}-V${newVersion}`
           
-          const quotationData = {
-            ...values,
-            lineItems,
-            subtotal,
-            gstDetails,
-            totalAmount,
+          const newVersionData = {
+            ...quotationData,
             quotationNumber: newQuotationNumber,
-            baseNumber: editData.baseNumber,
-            version: newVersion,
-            quotationId: editData.quotationId || editData.baseNumber,
-            createdDate: dayjs().format('YYYY-MM-DD'),
-            excelFile: excelFile
+            version: newVersion
           }
           
-          const newQuotation = { id: Date.now(), ...quotationData }
-          existing.push(newQuotation)
-          localStorage.setItem('quotations', JSON.stringify(existing))
+          await executeWithLoading(() => quotationAPI.create(newVersionData))
           message.success(`Version V${newVersion} created!`)
-          navigate('/quotations')
+        } else {
+          await executeWithLoading(() => quotationAPI.update(editData.id, quotationData))
+          message.success('Quotation updated successfully!')
         }
+        navigate('/quotations')
       } else {
-        // Create new quotation
-        const quotationData = {
-          ...values,
-          lineItems,
-          subtotal,
-          gstDetails,
-          totalAmount,
-          quotationNumber: baseNumber,
-          baseNumber: baseNumber,
-          version: 0,
-          quotationId: baseNumber,
-          createdDate: dayjs().format('YYYY-MM-DD'),
-          excelFile: excelFile
-        }
-        const newQuotation = { id: Date.now(), ...quotationData }
-        existing.push(newQuotation)
-        localStorage.setItem('quotations', JSON.stringify(existing))
+        await executeWithLoading(() => quotationAPI.create(quotationData))
         message.success('Quotation created!')
         navigate('/quotations')
       }
     } catch (error) {
-      message.error('Failed to save quotation')
+      console.error('Failed to save quotation:', error)
     }
   }
 

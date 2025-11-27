@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react'
 import { Modal, message, Tag } from 'antd'
 import ERPMasterLayout from '../../../../components/ERPMasterLayout'
+import { purchaseOrderEntryAPI, useApiLoading } from '../../../../services/apiService'
 
 export default function PurchaseOrderEntryList({ onEdit, onAdd }) {
   const [data, setData] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
 
   useEffect(() => {
     loadData()
   }, [])
 
-  const loadData = () => {
-    const entries = JSON.parse(localStorage.getItem('purchaseOrderEntries') || '[]')
-    setData(entries)
+  const loadData = async () => {
+    try {
+      const entries = await executeWithLoading(() => purchaseOrderEntryAPI.getAll())
+      setData(entries)
+    } catch (error) {
+      message.error('Failed to load purchase entries')
+    }
   }
 
   const columns = [
@@ -25,46 +31,57 @@ export default function PurchaseOrderEntryList({ onEdit, onAdd }) {
       title: 'PO Number',
       dataIndex: 'poNumber',
       key: 'poNumber',
-      render: (text) => <strong style={{ color: '#1890ff' }}>{text}</strong>
+      render: (text, record) => {
+        const poNumber = text || record.purchaseOrderId || (Array.isArray(record.poNumber) ? record.poNumber.join(', ') : record.poNumber)
+        return <strong style={{ color: '#1890ff' }}>{poNumber}</strong>
+      }
     },
-    {
-      title: 'Work Order Number',
-      dataIndex: 'workOrderNumber',
-      key: 'workOrderNumber'
-    },
-    {
-      title: 'Quotation Number',
-      dataIndex: 'quotationNumbers',
-      key: 'quotationNumbers'
-    },
+    // {
+    //   title: 'Work Order Number',
+    //   dataIndex: 'workOrderNumber',
+    //   key: 'workOrderNumber'
+    // },
+    // {
+    //   title: 'Quotation Number',
+    //   dataIndex: 'quotationNumbers',
+    //   key: 'quotationNumbers'
+    // },
     {
       title: 'PO Date',
       dataIndex: 'poDate',
-      key: 'poDate'
+      key: 'poDate',
+      render: (text, record) => {
+        const date = text || record.invoiceDate
+        return date ? new Date(date).toLocaleDateString('en-GB') : 'N/A'
+      }
     },
     {
       title: 'Supplier',
       dataIndex: 'supplierId',
       key: 'supplierId',
-      render: (id) => `Supplier ${id}`
+      render: (id, record) => record.supplierName || record.supplier?.name || record.supplier || (id ? `Supplier ${id}` : 'N/A')
     },
     {
       title: 'Total Amount',
-      dataIndex: 'grossAmount',
-      key: 'grossAmount',
-      render: (val) => `₹${(val || 0).toFixed(2)}`
+      dataIndex: 'totalAmount',
+      key: 'totalAmount',
+      render: (val, record) => {
+        const amount = val || record.grossAmount || 0
+        return `₹${amount.toFixed(2)}`
+      }
     },
     {
       title: 'Status',
-      dataIndex: 'poStatus',
-      key: 'poStatus',
-      render: (status) => {
+      dataIndex: 'status',
+      key: 'status',
+      render: (status, record) => {
+        const finalStatus = status || (record.poStatus === 1 ? 'Draft' : record.poStatus === 2 ? 'Submitted' : 'Approved')
         const statusMap = {
-          1: { color: 'orange', text: 'Draft' },
-          2: { color: 'blue', text: 'Submitted' },
-          3: { color: 'green', text: 'Approved' }
+          'Draft': { color: 'orange', text: 'Draft' },
+          'Submitted': { color: 'blue', text: 'Submitted' },
+          'Approved': { color: 'green', text: 'Approved' }
         }
-        const info = statusMap[status] || { color: 'default', text: 'Unknown' }
+        const info = statusMap[finalStatus] || { color: 'default', text: finalStatus || 'Unknown' }
         return <Tag color={info.color}>{info.text}</Tag>
       }
     }
@@ -81,18 +98,26 @@ export default function PurchaseOrderEntryList({ onEdit, onAdd }) {
   ]
 
   const handleEdit = (record) => {
-    onEdit(record)
+    const editData = {
+      ...record,
+      items: typeof record.lineItems === 'string' ? JSON.parse(record.lineItems) : record.lineItems || [],
+      poNumber: typeof record.purchaseOrderId === 'string' ? [record.purchaseOrderId] : record.poNumber
+    }
+    onEdit(editData)
   }
 
   const handleDelete = (record) => {
     Modal.confirm({
       title: 'Delete Purchase Order Entry',
       content: `Delete Purchase Entry ${record.purchaseInvoiceNumber || record.poNumber}?`,
-      onOk: () => {
-        const updated = data.filter(item => item.id !== record.id)
-        localStorage.setItem('purchaseOrderEntries', JSON.stringify(updated))
-        setData(updated)
-        message.success('Deleted successfully')
+      onOk: async () => {
+        try {
+          await executeWithLoading(() => purchaseOrderEntryAPI.delete(record.id))
+          await loadData()
+          message.success('Deleted successfully')
+        } catch (error) {
+          message.error('Failed to delete purchase entry')
+        }
       }
     })
   }
@@ -107,6 +132,7 @@ export default function PurchaseOrderEntryList({ onEdit, onAdd }) {
       onEdit={handleEdit}
       onDelete={handleDelete}
       buttonType="order"
+      loading={loading}
     />
   )
 }

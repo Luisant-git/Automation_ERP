@@ -17,6 +17,7 @@ import {
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined, ArrowLeftOutlined, MinusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { purchaseOrderAPI, supplierAPI, quotationAPI, useApiLoading } from '../services/apiService'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -26,73 +27,117 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
   const [items, setItems] = useState([])
   const [quotations, setQuotations] = useState([])
   const [materials, setMaterials] = useState([])
+  const [suppliers, setSuppliers] = useState([])
   const [remainingBudget, setRemainingBudget] = useState(0)
   const [addedItems, setAddedItems] = useState(new Set())
+  const { loading, executeWithLoading } = useApiLoading()
 
   // Generate PO Number
-  const generatePONumber = (type = 'project') => {
-    const prefix = type === 'project' ? 'PO-PRJ' : type === 'trade' ? 'PO-TRD' : 'PO-SHF'
-    const existing = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-    const sameType = existing.filter(po => po.poNumber?.startsWith(prefix))
-    const numbers = sameType.map(po => parseInt(po.poNumber?.replace(prefix, '') || '0'))
-    const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
-    return `${prefix}${String(lastNumber + 1).padStart(3, '0')}`
+  const generatePONumber = async (type = 'project') => {
+    try {
+      const existing = await executeWithLoading(() => purchaseOrderAPI.getAll())
+      const prefix = type === 'project' ? 'PO-PRJ' : type === 'trade' ? 'PO-TRD' : 'PO-SHF'
+      const sameType = existing.filter(po => po.purchaseOrderNumber?.startsWith(prefix))
+      const numbers = sameType.map(po => parseInt(po.purchaseOrderNumber?.replace(prefix, '') || '0'))
+      const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
+      return `${prefix}${String(lastNumber + 1).padStart(3, '0')}`
+    } catch (error) {
+      console.error('Error generating PO number:', error)
+      return `PO-PRJ001`
+    }
   }
 
   // Handle PO Type change
-  const handlePOTypeChange = (type) => {
+  const handlePOTypeChange = async (type) => {
     if (!editingOrder) {
-      const newPONumber = generatePONumber(type)
+      const newPONumber = await generatePONumber(type)
       form.setFieldsValue({ poNumber: newPONumber })
     }
   }
 
-  // Load quotations and materials from localStorage
-  const loadQuotations = () => {
-    const savedQuotations = JSON.parse(localStorage.getItem('quotations') || '[]')
-    setQuotations(savedQuotations)
-    const savedMaterials = JSON.parse(localStorage.getItem('materials') || '[]')
-    setMaterials(savedMaterials)
+  // Load data from API
+  const loadData = async () => {
+    try {
+      // Load quotations from API
+      const quotationsData = await quotationAPI.getAll()
+      const allQuotations = quotationsData.data || quotationsData || []
+      
+      // Filter only approved quotations
+      const approvedQuotations = allQuotations.filter(q => 
+        q.status === 'Approved' || q.quotationStatus === 'Approved'
+      )
+      setQuotations(approvedQuotations)
+      
+      // Load materials from localStorage (keeping existing functionality)
+      const savedMaterials = JSON.parse(localStorage.getItem('materials') || '[]')
+      setMaterials(savedMaterials)
+      
+      // Load suppliers from API
+      const suppliersData = await supplierAPI.getAll()
+      console.log('Suppliers loaded:', suppliersData)
+      setSuppliers(suppliersData.data || suppliersData || [])
+    } catch (error) {
+      console.error('Error loading data:', error)
+      message.error('Failed to load data from server')
+      // Fallback to localStorage if API fails
+      const savedQuotations = JSON.parse(localStorage.getItem('quotations') || '[]')
+      const approvedQuotations = savedQuotations.filter(q => 
+        q.status === 'Approved' || q.quotationStatus === 'Approved'
+      )
+      setQuotations(approvedQuotations)
+    }
   }
 
   // Initialize form
   useEffect(() => {
-    loadQuotations()
-    if (editingOrder) {
-      // Convert quotation numbers back to IDs for the multi-select
-      const quotationIds = []
-      if (editingOrder.quotationNumber) {
-        const quotationNumbers = editingOrder.quotationNumber.split(', ')
-        quotationNumbers.forEach(qNum => {
-          const quotation = quotations.find(q => q.quotationNumber === qNum.trim())
-          if (quotation) {
-            quotationIds.push(quotation.id)
-          }
+    const initializeForm = async () => {
+      await loadData()
+      
+      if (editingOrder) {
+        // Convert quotation numbers back to IDs for the multi-select
+        const quotationIds = []
+        if (editingOrder.workOrderNumber) {
+          const workOrderNumbers = editingOrder.workOrderNumber.split(', ')
+          workOrderNumbers.forEach(woNum => {
+            const quotation = quotations.find(q => q.workOrderNumber === woNum.trim() || q.quotationNumber === woNum.trim())
+            if (quotation) {
+              quotationIds.push(quotation.id)
+            }
+          })
+        }
+        
+        form.setFieldsValue({
+          ...editingOrder,
+          quotationNumber: quotationIds,
+          poDate: editingOrder.purchaseOrderDate ? dayjs(editingOrder.purchaseOrderDate) : dayjs(),
+          deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null,
+          poNumber: editingOrder.purchaseOrderNumber
+        })
+        setItems(editingOrder.lineItems ? JSON.parse(editingOrder.lineItems) : [])
+      } else {
+        const newPONumber = await generatePONumber('project')
+        form.setFieldsValue({
+          poNumber: newPONumber,
+          poDate: dayjs(),
+          poStatus: 'Draft',
+          currencyId: 1,
+          exchangeRate: 1
         })
       }
-      
-      form.setFieldsValue({
-        ...editingOrder,
-        quotationNumber: quotationIds, // Set as array of IDs for multi-select
-        poDate: editingOrder.poDate ? dayjs(editingOrder.poDate) : dayjs(),
-        deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null
-      })
-      setItems(editingOrder.items || [])
-    } else {
-      form.setFieldsValue({
-        poNumber: generatePONumber('project'),
-        poDate: dayjs(),
-        poStatus: 1,
-        currencyId: 1,
-        exchangeRate: 1
-      })
     }
-  }, [editingOrder, quotations])
+    
+    initializeForm()
+  }, [editingOrder])
 
   // Handle quotation selection
   const handleQuotationSelect = (quotationIds) => {
     if (!quotationIds || quotationIds.length === 0) {
-      form.setFieldsValue({ poType: undefined, workOrderNumber: '', quotationNumbers: '', budgetValue: null })
+      form.setFieldsValue({ 
+        poType: undefined, 
+        workOrderNumber: '', 
+        quotationNumbers: '', 
+        budgetValue: null 
+      })
       setRemainingBudget(0)
       return
     }
@@ -104,16 +149,23 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     let totalBudget = 0
     
     selectedQuotations.forEach((quotation, qIndex) => {
-      if (quotation.workOrderNumber) {
+      // Collect work order numbers (only if they exist and are different from quotation number)
+      if (quotation.workOrderNumber && quotation.workOrderNumber !== quotation.quotationNumber) {
+        workOrderNumbers.push(quotation.workOrderNumber)
+      } else if (quotation.workOrderNumber) {
         workOrderNumbers.push(quotation.workOrderNumber)
       }
+      
+      // Always collect quotation numbers separately
       if (quotation.quotationNumber) {
         quotationNumbers.push(quotation.quotationNumber)
       }
-      if (quotation.totalAmount) {
-        totalBudget += quotation.totalAmount
-      }
-      if (qIndex === 0) poType = quotation.quotationType || 'project'
+      
+      // Handle different possible field names for total amount
+      const amount = quotation.totalAmount || quotation.grandTotal || quotation.total || 0
+      totalBudget += amount
+      
+      if (qIndex === 0) poType = quotation.quotationType || quotation.type || 'project'
     })
     
     form.setFieldsValue({
@@ -128,6 +180,12 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
 
   // Item management
   const handleAddItem = () => {
+    const selectedQuotationIds = form.getFieldValue('quotationNumber') || []
+    if (selectedQuotationIds.length === 0) {
+      message.warning('Please select a work order first')
+      return
+    }
+    
     const newItem = {
       key: Date.now(),
       quotationNumber: '',
@@ -139,7 +197,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       hsnCode: '',
       serialNumber: '',
       quantity: 1,
-      unitId: 1,
+      unitId: 'Nos',
       rate: 0,
       discountPercentage: 0,
       discountAmount: 0,
@@ -262,7 +320,13 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       title: 'Item Code',
       dataIndex: 'itemCode',
       width: 100,
-      render: (text) => text || '-'
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(record.key, 'itemCode', e.target.value)}
+          placeholder="Item Code"
+        />
+      )
     },
     {
       title: 'Item Name',
@@ -270,16 +334,27 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       width: 180,
       render: (text, record) => {
         const selectedQuotation = quotations.find(q => q.quotationNumber === record.quotationNumber)
-        const lineItems = selectedQuotation?.lineItems || []
+        // Handle different possible structures for line items
+        let lineItems = []
+        if (selectedQuotation?.lineItems) {
+          lineItems = typeof selectedQuotation.lineItems === 'string' 
+            ? JSON.parse(selectedQuotation.lineItems) 
+            : selectedQuotation.lineItems
+        }
+        
         return (
           <Select
             value={text}
             onChange={(value) => {
-              const selectedItem = lineItems.find(item => item.itemName === value)
+              const selectedItem = lineItems.find(item => 
+                item.itemName === value || item.description === value || item.item === value
+              )
               if (selectedItem) {
                 const material = materials.find(m => m.itemCode === selectedItem.itemCode)
-                const taxRate = selectedItem.tax || material?.tax || 18
-                const taxableAmount = (selectedItem.quantity || 1) * (selectedItem.unitPrice || 0)
+                const taxRate = selectedItem.tax || selectedItem.gst || material?.tax || 18
+                const unitPrice = selectedItem.unitPrice || selectedItem.rate || selectedItem.price || 0
+                const qty = selectedItem.quantity || selectedItem.qty || 1
+                const taxableAmount = qty * unitPrice
                 const cgstPercentage = taxRate / 2
                 const sgstPercentage = taxRate / 2
                 const cgstAmount = taxableAmount * cgstPercentage / 100
@@ -290,13 +365,13 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                   if (item.key === record.key) {
                     return {
                       ...item,
-                      itemCode: selectedItem.itemCode || '',
-                      itemName: selectedItem.itemName || '',
+                      itemCode: selectedItem.itemCode || selectedItem.code || '',
+                      itemName: selectedItem.itemName || selectedItem.description || selectedItem.item || '',
                       category: selectedItem.category || material?.itemCategory || '',
-                      description: selectedItem.description || selectedItem.itemName || '',
-                      quantity: selectedItem.quantity || 1,
-                      rate: selectedItem.unitPrice || 0,
-                      hsnCode: material?.hsnCode || '',
+                      description: selectedItem.description || selectedItem.itemName || selectedItem.item || '',
+                      quantity: qty,
+                      rate: unitPrice,
+                      hsnCode: selectedItem.hsnCode || material?.hsnCode || '',
                       cgstPercentage: cgstPercentage,
                       sgstPercentage: sgstPercentage,
                       taxableAmount: taxableAmount,
@@ -321,8 +396,8 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
             }
           >
             {lineItems.map((item, idx) => (
-              <Option key={idx} value={item.itemName}>
-                {item.itemName}
+              <Option key={idx} value={item.itemName || item.description || item.item}>
+                {item.itemName || item.description || item.item}
               </Option>
             ))}
           </Select>
@@ -379,7 +454,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
       )
     },
     {
-      title: 'Unit (per)',
+      title: 'Unit',
       dataIndex: 'unitId',
       width: 80,
       render: (text, record) => (
@@ -387,12 +462,15 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
           value={text}
           onChange={(value) => updateItem(record.key, 'unitId', value)}
           style={{ width: '100%' }}
+          placeholder="Unit"
         >
-          <Option value={1}>Nos</Option>
-          <Option value={2}>Kg</Option>
-          <Option value={3}>Mtr</Option>
-          <Option value={4}>Ltr</Option>
-          <Option value={5}>Set</Option>
+          <Option value="Nos">Nos</Option>
+          <Option value="Kg">Kg</Option>
+          <Option value="Mtr">Mtr</Option>
+          <Option value="Ltr">Ltr</Option>
+          <Option value="Set">Set</Option>
+          <Option value="Pcs">Pcs</Option>
+          <Option value="Box">Box</Option>
         </Select>
       )
     },
@@ -433,41 +511,61 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
 
   const handleSubmit = async (values) => {
     try {
+      // Validate items
+      if (items.length === 0) {
+        message.error('Please add at least one item to the purchase order')
+        return
+      }
+      
+      const invalidItems = items.filter(item => 
+        !item.itemName || !item.quantity || item.quantity <= 0 || !item.rate || item.rate <= 0
+      )
+      
+      if (invalidItems.length > 0) {
+        message.error('Please fill all required fields (Item Name, Quantity, Rate) for all items')
+        return
+      }
+      
       const selectedQuotations = quotations.filter(q => (values.quotationNumber || []).includes(q.id))
       const quotationNumbers = selectedQuotations.map(q => q.quotationNumber).join(', ')
       
       const orderData = {
-        ...values,
-        quotationNumber: quotationNumbers,
-        quotationNumbers: quotationNumbers, // Keep both for compatibility
-        items,
-        ...totals,
-        poDate: values.poDate?.format('YYYY-MM-DD'),
-        deliveryDate: values.deliveryDate?.format('YYYY-MM-DD'),
-        createdDate: editingOrder ? editingOrder.createdDate : new Date().toISOString(),
-        createdBy: 1,
-        companyId: 1,
-        financialYearId: 1,
-        isActive: true
+        purchaseOrderNumber: values.poNumber,
+        baseNumber: values.poNumber?.split('-')[1] || '001',
+        version: 0,
+        purchaseOrderId: values.poNumber,
+        purchaseOrderType: values.poType || 'project',
+        purchaseOrderDate: values.poDate?.format('YYYY-MM-DD'),
+        validityDays: 30,
+        supplierId: values.supplierId,
+        projectName: values.projectName || '',
+        description: values.description || '',
+        status: values.poStatus || 'Draft',
+        workOrderNumber: values.workOrderNumber || '',
+        lineItems: JSON.stringify(items),
+        subtotal: totals.totalAmount,
+        totalDiscount: totals.totalDiscountAmount,
+        gstDetails: JSON.stringify({
+          cgst: totals.totalTaxAmount / 2,
+          sgst: totals.totalTaxAmount / 2,
+          igst: 0
+        }),
+        totalAmount: totals.grossAmount,
+        termsAndConditions: values.termsConditions || '',
+        excelFile: null
       }
 
-      const existingOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-
       if (editingOrder) {
-        const updatedOrders = existingOrders.map(order =>
-          order.id === editingOrder.id ? { ...orderData, id: editingOrder.id } : order
-        )
-        localStorage.setItem('purchaseOrders', JSON.stringify(updatedOrders))
+        await executeWithLoading(() => purchaseOrderAPI.update(editingOrder.id, orderData))
         message.success('Purchase Order updated successfully!')
       } else {
-        const newOrder = { id: Date.now(), ...orderData }
-        existingOrders.push(newOrder)
-        localStorage.setItem('purchaseOrders', JSON.stringify(existingOrders))
-        message.success('Purchase Order saved successfully!')
+        await executeWithLoading(() => purchaseOrderAPI.create(orderData))
+        message.success('Purchase Order created successfully!')
       }
 
       onOrderSaved && onOrderSaved()
     } catch (error) {
+      console.error('Error saving purchase order:', error)
       message.error('Failed to save Purchase Order')
     }
   }
@@ -509,14 +607,22 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                     showSearch
                     optionFilterProp="children"
                   >
-                    {quotations.map(q => (
-                      <Option key={q.id} value={q.id}>
-                        {q.workOrderNumber || q.quotationNumber} - {q.projectName || 'N/A'}
-                      </Option>
-                    ))}
+                    {quotations.map(q => {
+                      const displayText = q.workOrderNumber 
+                        ? `${q.workOrderNumber} - ${q.projectName || q.customerName || 'N/A'}`
+                        : `${q.quotationNumber} - ${q.projectName || q.customerName || 'N/A'}`
+                      return (
+                        <Option key={q.id} value={q.id}>
+                          {displayText}
+                        </Option>
+                      )
+                    })}
                   </Select>
                 </Form.Item>
-                <Form.Item name="quotationNumbers" label="Quotation Number">
+                <Form.Item name="workOrderNumber" label="Selected Work Orders">
+                  <Input placeholder="Auto-filled from selection" disabled />
+                </Form.Item>
+                <Form.Item name="quotationNumbers" label="Quotation Numbers">
                   <Input placeholder="Auto-filled from work orders" disabled />
                 </Form.Item>
                 <Form.Item name="poType" hidden>
@@ -530,11 +636,11 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                 <Form.Item name="deliveryDate" label="Delivery Date">
                   <DatePicker style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item name="poStatus" label="Status" initialValue={1}>
+                <Form.Item name="poStatus" label="Status" initialValue="Draft">
                   <Select>
-                    <Option value={1}>Draft</Option>
-                    <Option value={2}>Submitted</Option>
-                    <Option value={3}>Approved</Option>
+                    <Option value="Draft">Draft</Option>
+                    <Option value="Submitted">Submitted</Option>
+                    <Option value="Approved">Approved</Option>
                   </Select>
                 </Form.Item>
               </Col>
@@ -545,12 +651,44 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
           <Row gutter={24} style={{ marginTop: '16px' }}>
             <Col span={12}>
               <Card size="small" title="Supplier Details">
-                <Form.Item name="supplierId" label="Supplier Name" rules={[{ required: true }]}>
-                  <Select placeholder="Select Supplier">
-                    <Option value={1}>Supplier 1</Option>
-                    <Option value={2}>Supplier 2</Option>
+                <Form.Item 
+                  name="supplierId" 
+                  label="Supplier Name" 
+                  rules={[{ required: true, message: 'Please select a supplier' }]}
+                >
+                  <Select 
+                    placeholder="Select Supplier" 
+                    loading={loading}
+                    showSearch
+                    optionFilterProp="children"
+                    notFoundContent={suppliers.length === 0 ? 'No suppliers found' : 'No matching suppliers'}
+                    allowClear
+                  >
+                    {suppliers.map(supplier => (
+                      <Option key={supplier.id} value={supplier.id}>
+                        {supplier.supplierName || supplier.name || `Supplier ${supplier.id}`}
+                      </Option>
+                    ))}
                   </Select>
                 </Form.Item>
+                <div style={{ marginTop: '-16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    {suppliers.length === 0 && (
+                      <span style={{ color: '#999', fontSize: '12px' }}>
+                        No suppliers loaded. Click refresh to reload.
+                      </span>
+                    )}
+                  </div>
+                  <Button 
+                    size="small"
+                    icon={<PlusOutlined />} 
+                    onClick={loadData}
+                    title="Refresh Suppliers"
+                    loading={loading}
+                  >
+                    Refresh
+                  </Button>
+                </div>
                 <Form.Item name="deliveryAddress" label="Delivery Address">
                   <TextArea rows={3} placeholder="Delivery Address" />
                 </Form.Item>
@@ -585,24 +723,30 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                         dataSource={selectedQuotations.map(quotation => {
                           const quotationItems = items.filter(item => item.quotationNumber === quotation.quotationNumber)
                           const spent = quotationItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0)
-                          const budget = quotation.totalAmount || 0
+                          const budget = quotation.totalAmount || quotation.grandTotal || quotation.total || 0
                           const remaining = budget - spent
                           return {
                             key: quotation.id,
                             quotationNumber: quotation.quotationNumber,
+                            workOrderNumber: quotation.workOrderNumber,
                             budget,
                             spent,
                             remaining
                           }
                         })}
                         columns={[
-                          { title: 'Quotation', dataIndex: 'quotationNumber', width: 150 },
-                          { title: 'Budget', dataIndex: 'budget', width: 150, render: (val) => `₹${val.toLocaleString()}` },
-                          { title: 'Spent', dataIndex: 'spent', width: 150, render: (val) => `₹${val.toLocaleString()}` },
+                          { 
+                            title: 'Work Order', 
+                            dataIndex: 'workOrderNumber', 
+                            width: 120,
+                            render: (text, record) => text || record.quotationNumber
+                          },
+                          { title: 'Budget', dataIndex: 'budget', width: 120, render: (val) => `₹${val.toLocaleString()}` },
+                          { title: 'Spent', dataIndex: 'spent', width: 120, render: (val) => `₹${val.toLocaleString()}` },
                           { 
                             title: 'Remaining', 
                             dataIndex: 'remaining', 
-                            width: 150, 
+                            width: 120, 
                             render: (val) => (
                               <span style={{ color: val < 0 ? '#ff4d4f' : '#52c41a', fontWeight: 'bold' }}>
                                 ₹{val.toLocaleString()}
@@ -615,10 +759,34 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                   }
                   return null
                 })()}
-                <div style={{ textAlign: 'right' }}>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={handleAddItem}>
-                    Add Item
-                  </Button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong>Items: {items.length}</strong>
+                    {items.length > 0 && (
+                      <span style={{ marginLeft: '16px', color: '#666' }}>
+                        Total Qty: {totals.totalQuantity} | 
+                        Total Value: ₹{totals.grossAmount.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <Space>
+                    {items.length > 0 && (
+                      <Button 
+                        danger 
+                        icon={<DeleteOutlined />} 
+                        onClick={() => {
+                          setItems([])
+                          updateRemainingBudget([])
+                          message.success('All items cleared')
+                        }}
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAddItem}>
+                      Add Item
+                    </Button>
+                  </Space>
                 </div>
               </div>
               <Table
@@ -628,6 +796,29 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                 size="small"
                 bordered
                 scroll={{ x: 1800 }}
+                locale={{
+                  emptyText: 'No items added. Click "Add Item" to start.'
+                }}
+                summary={() => (
+                  <Table.Summary>
+                    <Table.Summary.Row>
+                      <Table.Summary.Cell index={0} colSpan={7}>
+                        <strong>Total</strong>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={7}>
+                        <strong>{totals.totalQuantity}</strong>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={8}></Table.Summary.Cell>
+                      <Table.Summary.Cell index={9}>
+                        <strong>₹{totals.totalAmount.toFixed(2)}</strong>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={10}>
+                        <strong>₹{totals.grossAmount.toFixed(2)}</strong>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={11}></Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  </Table.Summary>
+                )}
               />
             </Card>
           </div>
@@ -695,6 +886,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
             icon={<SaveOutlined />} 
             onClick={() => form.submit()} 
             size="large"
+            loading={loading}
             style={{ minWidth: '150px' }}
           >
             {editingOrder ? 'Update' : 'Save'} Purchase Order

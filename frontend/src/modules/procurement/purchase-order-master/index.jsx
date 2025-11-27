@@ -2,32 +2,39 @@ import React, { useState, useEffect } from 'react'
 import { Modal, message, Tag } from 'antd'
 import ERPMasterLayout from '../../../components/ERPMasterLayout'
 import PurchaseOrderForm from '../../../components/PurchaseOrderForm'
+import { purchaseOrderAPI, useApiLoading } from '../../../services/apiService'
 
 export default function PurchaseOrderMaster() {
   const [data, setData] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
+  const { loading, executeWithLoading } = useApiLoading()
 
   useEffect(() => {
     loadData()
   }, [])
 
-  const loadData = () => {
-    const orders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-    setData(orders)
+  const loadData = async () => {
+    try {
+      const orders = await executeWithLoading(() => purchaseOrderAPI.getAll())
+      setData(orders)
+    } catch (error) {
+      console.error('Error loading purchase orders:', error)
+      message.error('Failed to load purchase orders')
+    }
   }
 
   const columns = [
     {
       title: 'PO Number',
-      dataIndex: 'poNumber',
-      key: 'poNumber',
+      dataIndex: 'purchaseOrderNumber',
+      key: 'purchaseOrderNumber',
       render: (text) => <strong style={{ color: '#1890ff' }}>{text}</strong>
     },
     {
-      title: 'Quotation Number',
-      dataIndex: 'quotationNumber',
-      key: 'quotationNumber'
+      title: 'Work Order Number',
+      dataIndex: 'workOrderNumber',
+      key: 'workOrderNumber'
     },
     // {
     //   title: 'PO Type',
@@ -40,42 +47,59 @@ export default function PurchaseOrderMaster() {
     // },
     {
       title: 'PO Date',
-      dataIndex: 'poDate',
-      key: 'poDate'
+      dataIndex: 'purchaseOrderDate',
+      key: 'purchaseOrderDate',
+      render: (date) => date ? new Date(date).toLocaleDateString() : '-'
     },
     {
       title: 'Supplier',
-      dataIndex: 'supplierId',
-      key: 'supplierId',
-      render: (id) => `Supplier ${id}`
+      dataIndex: 'supplier',
+      key: 'supplier',
+      render: (supplier, record) => {
+        // Handle different possible supplier data structures
+        if (supplier?.supplierName) {
+          return supplier.supplierName
+        }
+        if (supplier?.name) {
+          return supplier.name
+        }
+        if (record.supplierName) {
+          return record.supplierName
+        }
+        if (record.supplierId) {
+          return `Supplier ID: ${record.supplierId}`
+        }
+        return 'No Supplier'
+      }
     },
     {
       title: 'Total Amount',
-      dataIndex: 'grossAmount',
-      key: 'grossAmount',
-      render: (val) => `₹${(val || 0).toFixed(2)}`
+      dataIndex: 'totalAmount',
+      key: 'totalAmount',
+      render: (val) => `₹${(val || 0).toLocaleString()}`
     },
     {
       title: 'Status',
-      dataIndex: 'poStatus',
-      key: 'poStatus',
+      dataIndex: 'status',
+      key: 'status',
       render: (status) => {
         const statusMap = {
-          1: { color: 'orange', text: 'Draft' },
-          2: { color: 'blue', text: 'Submitted' },
-          3: { color: 'green', text: 'Approved' }
+          'Draft': { color: 'orange', text: 'Draft' },
+          'Submitted': { color: 'blue', text: 'Submitted' },
+          'Approved': { color: 'green', text: 'Approved' }
         }
-        const info = statusMap[status] || { color: 'default', text: 'Unknown' }
+        const info = statusMap[status] || { color: 'default', text: status || 'Unknown' }
         return <Tag color={info.color}>{info.text}</Tag>
       }
     }
   ]
 
   const searchFields = [
-    { name: 'poNumber', placeholder: 'PO Number', type: 'input' },
-    { name: 'supplierId', placeholder: 'Supplier', type: 'select', options: [
-      { value: 1, label: 'Supplier 1' },
-      { value: 2, label: 'Supplier 2' }
+    { name: 'purchaseOrderNumber', placeholder: 'PO Number', type: 'input' },
+    { name: 'status', placeholder: 'Status', type: 'select', options: [
+      { value: 'Draft', label: 'Draft' },
+      { value: 'Submitted', label: 'Submitted' },
+      { value: 'Approved', label: 'Approved' }
     ]},
     { name: 'dateRange', placeholder: 'Date Range', type: 'dateRange' }
   ]
@@ -93,12 +117,16 @@ export default function PurchaseOrderMaster() {
   const handleDelete = (record) => {
     Modal.confirm({
       title: 'Delete Purchase Order',
-      content: `Delete PO ${record.poNumber}?`,
-      onOk: () => {
-        const updated = data.filter(item => item.id !== record.id)
-        localStorage.setItem('purchaseOrders', JSON.stringify(updated))
-        setData(updated)
-        message.success('Deleted successfully')
+      content: `Delete PO ${record.purchaseOrderNumber}?`,
+      onOk: async () => {
+        try {
+          await executeWithLoading(() => purchaseOrderAPI.delete(record.id))
+          message.success('Purchase Order deleted successfully')
+          loadData()
+        } catch (error) {
+          console.error('Error deleting purchase order:', error)
+          message.error('Failed to delete purchase order')
+        }
       }
     })
   }
@@ -130,6 +158,7 @@ export default function PurchaseOrderMaster() {
       onEdit={handleEdit}
       onDelete={handleDelete}
       buttonType="order"
+      loading={loading}
     />
   )
 }

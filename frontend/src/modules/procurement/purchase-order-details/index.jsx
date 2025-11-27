@@ -1,37 +1,49 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Table, Input, Space } from 'antd'
+import { Card, Table, Input, Space, message } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import { Plus, Minus } from 'lucide-react'
+import { purchaseOrderAPI, useApiLoading } from '../../../services/apiService'
 
 
 export default function PurchaseOrderDetails() {
   const [data, setData] = useState([])
   const [filteredData, setFilteredData] = useState([])
   const [searchText, setSearchText] = useState('')
+  const { loading, executeWithLoading } = useApiLoading()
 
   useEffect(() => {
-    const orders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-    const groupedData = orders.map(order => {
-      const totalQty = (order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0)
-      const totalTaxable = (order.items || []).reduce((sum, item) => sum + (item.taxableAmount || 0), 0)
-      const totalAmount = (order.items || []).reduce((sum, item) => sum + (item.totalAmount || 0), 0)
-      
-      return {
-        id: order.id,
-        poNumber: order.poNumber,
-        quotationNumber: order.quotationNumber,
-        poType: order.poType,
-        poDate: order.poDate,
-        supplierId: order.supplierId,
-        items: order.items || [],
-        itemCount: (order.items || []).length,
-        totalQuantity: totalQty,
-        totalTaxableAmount: totalTaxable,
-        totalAmount: totalAmount
+    const loadData = async () => {
+      try {
+        const orders = await executeWithLoading(() => purchaseOrderAPI.getAll())
+        const groupedData = orders.map(order => {
+          const items = order.lineItems ? JSON.parse(order.lineItems) : []
+          const totalQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0)
+          const totalTaxable = order.subtotal || 0
+          const totalAmount = order.totalAmount || 0
+          
+          return {
+            id: order.id,
+            poNumber: order.purchaseOrderNumber,
+            quotationNumber: order.workOrderNumber,
+            poType: order.purchaseOrderType,
+            poDate: order.purchaseOrderDate ? new Date(order.purchaseOrderDate).toLocaleDateString() : '-',
+            supplier: order.supplier?.supplierName || order.supplier?.name || (order.supplierId ? `Supplier ID: ${order.supplierId}` : 'No Supplier'),
+            items: items,
+            itemCount: items.length,
+            totalQuantity: totalQty,
+            totalTaxableAmount: totalTaxable,
+            totalAmount: totalAmount
+          }
+        })
+        setData(groupedData)
+        setFilteredData(groupedData)
+      } catch (error) {
+        console.error('Error loading purchase orders:', error)
+        message.error('Failed to load purchase orders')
       }
-    })
-    setData(groupedData)
-    setFilteredData(groupedData)
+    }
+    
+    loadData()
   }, [])
 
   const handleSearch = (value) => {
@@ -40,7 +52,7 @@ export default function PurchaseOrderDetails() {
       item.poNumber?.toLowerCase().includes(value.toLowerCase()) ||
       item.quotationNumber?.toLowerCase().includes(value.toLowerCase()) ||
       item.poType?.toLowerCase().includes(value.toLowerCase()) ||
-      item.supplierId?.toString().includes(value)
+      item.supplier?.toLowerCase().includes(value.toLowerCase())
     )
     setFilteredData(filtered)
   }
@@ -53,7 +65,7 @@ export default function PurchaseOrderDetails() {
       width: 120
     },
     {
-      title: 'Quotation Number',
+      title: 'Work Order Number',
       dataIndex: 'quotationNumber',
       key: 'quotationNumber',
       width: 150
@@ -76,10 +88,10 @@ export default function PurchaseOrderDetails() {
     },
     {
       title: 'Supplier',
-      dataIndex: 'supplierId',
-      key: 'supplierId',
-      width: 100,
-      render: (id) => `Supplier ${id}`
+      dataIndex: 'supplier',
+      key: 'supplier',
+      width: 150,
+render: (supplier) => supplier || 'No Supplier'
     },
     {
       title: 'Item Count',
@@ -148,6 +160,7 @@ export default function PurchaseOrderDetails() {
           columns={columns}
           dataSource={filteredData}
           rowKey="id"
+          loading={loading}
           expandable={{
             expandedRowRender,
             rowExpandable: (record) => record.items.length > 0,

@@ -3,31 +3,39 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
-import { PrismaService } from './prisma.service';
+import { AuthService } from '../modules/auth/auth.service';
+import { AuthController } from '../modules/auth/auth.controller';
+import { PrismaService } from '../modules/common/prisma/prisma.service';
 
 // Master Controllers
-import { LedgerController } from './ledger.controller';
-import { OpeningStockController } from './opening-stock.controller';
-import { TaxRateController } from './tax-rate.controller';
-import { BrandController } from './brand.controller';
-import { CategoryController } from './category.controller';
-import { MaterialController } from './material.controller';
-import { EmployeeController } from './employee.controller';
-import { CustomerController } from './customer.controller';
-import { SupplierController } from './supplier.controller';
+import { LedgerController } from '../modules/masters/ledger/ledger.controller';
+import { OpeningStockController } from '../modules/transactions/opening-stock/opening-stock.controller';
+import { TaxRateController } from '../modules/masters/tax-rate/tax-rate.controller';
+import { BrandController } from '../modules/masters/brand/brand.controller';
+import { CategoryController } from '../modules/masters/category/category.controller';
+import { MaterialController } from '../modules/masters/material/material.controller';
+import { EmployeeController } from '../modules/masters/employee/employee.controller';
+import { CustomerController } from '../modules/masters/customer/customer.controller';
+import { SupplierController } from '../modules/masters/supplier/supplier.controller';
+import { QuotationController } from '../modules/transactions/quotation/quotation.controller';
+import { PurchaseOrderController } from '../modules/transactions/purchase-order/purchase-order.controller';
+import { PurchaseEntryController } from '../modules/transactions/purchase-entry/purchase-entry.controller';
+import { PurchaseReturnController } from '../modules/transactions/purchase-return/purchase-return.controller';
 
 // Master Services
-import { LedgerService } from './ledger.service';
-import { OpeningStockService } from './opening-stock.service';
-import { TaxRateService } from './tax-rate.service';
-import { BrandService } from './brand.service';
-import { CategoryService } from './category.service';
-import { MaterialService } from './material.service';
-import { EmployeeService } from './employee.service';
-import { CustomerService } from './customer.service';
-import { SupplierService } from './supplier.service';
+import { LedgerService } from '../modules/masters/ledger/ledger.service';
+import { OpeningStockService } from '../modules/transactions/opening-stock/opening-stock.service';
+import { TaxRateService } from '../modules/masters/tax-rate/tax-rate.service';
+import { BrandService } from '../modules/masters/brand/brand.service';
+import { CategoryService } from '../modules/masters/category/category.service';
+import { MaterialService } from '../modules/masters/material/material.service';
+import { EmployeeService } from '../modules/masters/employee/employee.service';
+import { CustomerService } from '../modules/masters/customer/customer.service';
+import { SupplierService } from '../modules/masters/supplier/supplier.service';
+import { QuotationService } from '../modules/transactions/quotation/quotation.service';
+import { PurchaseOrderService } from '../modules/transactions/purchase-order/purchase-order.service';
+import { PurchaseEntryService } from '../modules/transactions/purchase-entry/purchase-entry.service';
+import { PurchaseReturnService } from '../modules/transactions/purchase-return/purchase-return.service';
 
 @Module({
   imports: [
@@ -52,6 +60,10 @@ import { SupplierService } from './supplier.service';
     EmployeeController,
     CustomerController,
     SupplierController,
+    QuotationController,
+    PurchaseOrderController,
+    PurchaseEntryController,
+    PurchaseReturnController,
   ],
   providers: [
     AdminService,
@@ -66,6 +78,10 @@ import { SupplierService } from './supplier.service';
     EmployeeService,
     CustomerService,
     SupplierService,
+    QuotationService,
+    PurchaseOrderService,
+    PurchaseEntryService,
+    PurchaseReturnService,
   ],
 })
 export class AdminModule {}

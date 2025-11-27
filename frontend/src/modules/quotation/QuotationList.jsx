@@ -4,12 +4,13 @@ import { DownloadOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import ERPMasterLayout from '../../components/ERPMasterLayout'
+import { quotationAPI, customerAPI, useApiLoading } from '../../services/apiService'
 
 export default function QuotationList() {
   const navigate = useNavigate()
   const [quotations, setQuotations] = useState([])
   const [customers, setCustomers] = useState([])
-  const [loading, setLoading] = useState(false)
+  const { loading, executeWithLoading } = useApiLoading()
 
 
 
@@ -126,20 +127,21 @@ export default function QuotationList() {
   ]
 
   useEffect(() => {
-    const savedCustomers = JSON.parse(localStorage.getItem('customers') || '[]')
-    setCustomers(savedCustomers)
-    fetchQuotations()
+    fetchData()
   }, [])
 
-  const fetchQuotations = async () => {
-    setLoading(true)
+  const fetchData = async () => {
     try {
-      const savedQuotations = JSON.parse(localStorage.getItem('quotations') || '[]')
-      setQuotations(savedQuotations)
+      const [quotationsData, customersData] = await Promise.all([
+        executeWithLoading(() => quotationAPI.getAll()),
+        executeWithLoading(() => customerAPI.getAll())
+      ])
+      // Sort quotations by creation date/id in descending order (newest first)
+      const sortedQuotations = quotationsData.sort((a, b) => b.id - a.id)
+      setQuotations(sortedQuotations)
+      setCustomers(customersData)
     } catch (error) {
-      message.error('Failed to fetch quotations')
-    } finally {
-      setLoading(false)
+      console.error('Failed to fetch data:', error)
     }
   }
 
@@ -154,12 +156,15 @@ export default function QuotationList() {
   const handleDelete = (record) => {
     Modal.confirm({
       title: 'Delete Quotation',
-      content: `Are you sure you want to delete quotation "${record.quotationId}"?`,
-      onOk: () => {
-        const updated = quotations.filter(q => q.id !== record.id)
-        setQuotations(updated)
-        localStorage.setItem('quotations', JSON.stringify(updated))
-        message.success('Quotation deleted successfully')
+      content: `Are you sure you want to delete quotation "${record.quotationNumber}"?`,
+      onOk: async () => {
+        try {
+          await executeWithLoading(() => quotationAPI.delete(record.id))
+          setQuotations(prev => prev.filter(q => q.id !== record.id))
+          message.success('Quotation deleted successfully')
+        } catch (error) {
+          console.error('Failed to delete quotation:', error)
+        }
       }
     })
   }

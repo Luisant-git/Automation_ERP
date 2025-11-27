@@ -17,6 +17,7 @@ import {
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined, ArrowLeftOutlined, MinusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { purchaseOrderEntryAPI, quotationAPI, materialAPI, purchaseOrderAPI, supplierAPI, useApiLoading } from '../../../../services/apiService'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -26,26 +27,26 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
   const [items, setItems] = useState([])
   const [quotations, setQuotations] = useState([])
   const [materials, setMaterials] = useState([])
+  const [purchaseOrders, setPurchaseOrders] = useState([])
+  const [suppliers, setSuppliers] = useState([])
   const [remainingBudget, setRemainingBudget] = useState(0)
   const [addedItems, setAddedItems] = useState(new Set())
+  const { loading, executeWithLoading } = useApiLoading()
 
-  // Generate PO Number
-  const generatePONumber = (type = 'project') => {
-    const prefix = type === 'project' ? 'PO-PRJ' : type === 'trade' ? 'PO-TRD' : 'PO-SHF'
-    const existing = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-    const sameType = existing.filter(po => po.poNumber?.startsWith(prefix))
-    const numbers = sameType.map(po => parseInt(po.poNumber?.replace(prefix, '') || '0'))
-    const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
-    return `${prefix}${String(lastNumber + 1).padStart(3, '0')}`
-  }
+
 
   // Generate Purchase Invoice Number
-  const generatePurchaseInvoiceNumber = () => {
-    const prefix = 'PI-'
-    const existing = JSON.parse(localStorage.getItem('purchaseOrderEntries') || '[]')
-    const numbers = existing.map(entry => parseInt(entry.purchaseInvoiceNumber?.replace(prefix, '') || '0'))
-    const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
-    return `${prefix}${String(lastNumber + 1).padStart(4, '0')}`
+  const generatePurchaseInvoiceNumber = async () => {
+    try {
+      const existing = await executeWithLoading(() => purchaseOrderEntryAPI.getAll())
+      const prefix = 'PI-'
+      const numbers = existing.map(entry => parseInt(entry.purchaseInvoiceNumber?.replace(prefix, '') || '0'))
+      const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
+      return `${prefix}${String(lastNumber + 1).padStart(4, '0')}`
+    } catch (error) {
+      const prefix = 'PI-'
+      return `${prefix}0001`
+    }
   }
 
   // Handle PO Type change
@@ -56,33 +57,47 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
     }
   }
 
-  // Load quotations and materials from localStorage
-  const loadQuotations = () => {
-    const savedQuotations = JSON.parse(localStorage.getItem('quotations') || '[]')
-    setQuotations(savedQuotations)
-    const savedMaterials = JSON.parse(localStorage.getItem('materials') || '[]')
-    setMaterials(savedMaterials)
+  // Load data from API
+  const loadData = async () => {
+    try {
+      const [quotationsData, materialsData, purchaseOrdersData, suppliersData] = await Promise.all([
+        executeWithLoading(() => quotationAPI.getAll()),
+        executeWithLoading(() => materialAPI.getAll()),
+        executeWithLoading(() => purchaseOrderAPI.getAll()),
+        executeWithLoading(() => supplierAPI.getAll())
+      ])
+      setQuotations(quotationsData)
+      setMaterials(materialsData)
+      setPurchaseOrders(purchaseOrdersData)
+      setSuppliers(suppliersData)
+    } catch (error) {
+      message.error('Failed to load data')
+    }
   }
 
   // Initialize form
   useEffect(() => {
-    loadQuotations()
-    if (editingOrder) {
-      form.setFieldsValue({
-        ...editingOrder,
-        poDate: editingOrder.poDate ? dayjs(editingOrder.poDate) : dayjs(),
-        deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null
-      })
-      setItems(editingOrder.items || [])
-    } else {
-      form.setFieldsValue({
-        purchaseInvoiceNumber: generatePurchaseInvoiceNumber(),
-        poDate: dayjs(),
-        poStatus: 1,
-        currencyId: 1,
-        exchangeRate: 1
-      })
+    const initializeForm = async () => {
+      await loadData()
+      if (editingOrder) {
+        form.setFieldsValue({
+          ...editingOrder,
+          poDate: editingOrder.poDate ? dayjs(editingOrder.poDate) : dayjs(),
+          deliveryDate: editingOrder.deliveryDate ? dayjs(editingOrder.deliveryDate) : null
+        })
+        setItems(editingOrder.items || [])
+      } else {
+        const invoiceNumber = await generatePurchaseInvoiceNumber()
+        form.setFieldsValue({
+          purchaseInvoiceNumber: invoiceNumber,
+          poDate: dayjs(),
+          poStatus: 1,
+          currencyId: 1,
+          exchangeRate: 1
+        })
+      }
     }
+    initializeForm()
   }, [editingOrder])
 
   // Handle quotation selection
@@ -409,14 +424,21 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
         }
         
         // Get Purchase Order Master data
-        const purchaseOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
         const selectedPONumbers = form.getFieldValue('poNumber') || []
-        const selectedPOs = purchaseOrders.filter(po => selectedPONumbers.includes(po.poNumber))
+        const selectedPOs = purchaseOrders.filter(po => 
+          selectedPONumbers.includes(po.poNumber || po.purchaseOrderNumber)
+        )
         
         // Find matching item in PO Master
         let originalQty = 0
         selectedPOs.forEach(po => {
-          const poItem = po.items?.find(item => item.description === record.itemName || item.itemName === record.itemName)
+          const poItems = Array.isArray(po.items) ? po.items : 
+                         Array.isArray(po.lineItems) ? po.lineItems : []
+          const poItem = poItems.find(item => 
+            item.description === record.itemName || 
+            item.itemName === record.itemName ||
+            item.name === record.itemName
+          )
           if (poItem) {
             originalQty += poItem.quantity || 0
           }
@@ -505,43 +527,37 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
 
   const handleSubmit = async (values) => {
     try {
-      const selectedQuotations = quotations.filter(q => (values.quotationNumber || []).includes(q.id))
-      const quotationNumbers = selectedQuotations.map(q => q.quotationNumber).join(', ')
-      const workOrderNumbers = (values.workOrderNumber || []).join(', ')
-      
       const orderData = {
-        ...values,
-        quotationNumber: quotationNumbers,
-        workOrderNumber: workOrderNumbers,
-        items,
-        ...totals,
-        poDate: values.poDate?.format('YYYY-MM-DD'),
-        deliveryDate: values.deliveryDate?.format('YYYY-MM-DD'),
-        createdDate: new Date().toISOString(),
-        createdBy: 1,
-        companyId: 1,
-        financialYearId: 1,
-        isActive: true
+        purchaseInvoiceNumber: values.purchaseInvoiceNumber,
+        purchaseOrderId: Array.isArray(values.poNumber) ? values.poNumber[0] : values.poNumber,
+        supplierId: values.supplierId,
+        invoiceDate: values.poDate?.format('YYYY-MM-DD'),
+        dueDate: values.deliveryDate?.format('YYYY-MM-DD'),
+        lineItems: JSON.stringify(items),
+        subtotal: totals.totalAmount,
+        totalDiscount: totals.totalDiscountAmount,
+        gstDetails: JSON.stringify({
+          cgst: items.reduce((sum, item) => sum + (item.cgstAmount || 0), 0),
+          sgst: items.reduce((sum, item) => sum + (item.sgstAmount || 0), 0),
+          igst: items.reduce((sum, item) => sum + (item.igstAmount || 0), 0)
+        }),
+        totalAmount: totals.grossAmount,
+        status: values.poStatus === 1 ? 'Draft' : values.poStatus === 2 ? 'Submitted' : 'Approved',
+        workOrderNumber: Array.isArray(values.workOrderNumber) ? values.workOrderNumber.join(', ') : values.workOrderNumber,
+        quotationNumbers: values.quotationNumbers
       }
 
-      const existingEntries = JSON.parse(localStorage.getItem('purchaseOrderEntries') || '[]')
-
       if (editingOrder) {
-        const updatedEntries = existingEntries.map(entry =>
-          entry.id === editingOrder.id ? { ...orderData, id: editingOrder.id } : entry
-        )
-        localStorage.setItem('purchaseOrderEntries', JSON.stringify(updatedEntries))
+        await executeWithLoading(() => purchaseOrderEntryAPI.update(editingOrder.id, orderData))
         message.success('Purchase Order Entry updated successfully!')
       } else {
-        const newEntry = { id: Date.now(), ...orderData }
-        existingEntries.push(newEntry)
-        localStorage.setItem('purchaseOrderEntries', JSON.stringify(existingEntries))
+        await executeWithLoading(() => purchaseOrderEntryAPI.create(orderData))
         message.success('Purchase Order Entry saved successfully!')
       }
 
       onOrderSaved && onOrderSaved()
     } catch (error) {
-      message.error('Failed to save Purchase Order')
+      message.error('Failed to save Purchase Order Entry')
     }
   }
 
@@ -583,16 +599,14 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
                     filterOption={(input, option) => 
                       option.children.toLowerCase().includes(input.toLowerCase())
                     }
-
                   >
-                    {(() => {
-                      const purchaseOrders = JSON.parse(localStorage.getItem('purchaseOrders') || '[]')
-                      return purchaseOrders.map(order => (
-                        <Option key={order.id} value={order.poNumber}>
-                          {order.poNumber}
+                    {purchaseOrders
+                      .filter(order => order.status === 'Approved' || order.poStatus === 3)
+                      .map(order => (
+                        <Option key={order.id} value={order.poNumber || order.purchaseOrderNumber}>
+                          {order.poNumber || order.purchaseOrderNumber} - {order.projectName || 'N/A'}
                         </Option>
-                      ))
-                    })()}
+                      ))}
                   </Select>
                 </Form.Item>
 
@@ -658,9 +672,19 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
             <Col span={12}>
               <Card size="small" title="Supplier Details">
                 <Form.Item name="supplierId" label="Supplier Name" rules={[{ required: true }]}>
-                  <Select placeholder="Select Supplier">
-                    <Option value={1}>Supplier 1</Option>
-                    <Option value={2}>Supplier 2</Option>
+                  <Select 
+                    placeholder="Select Supplier"
+                    showSearch
+                    optionFilterProp="children"
+                    filterOption={(input, option) => 
+                      option.children.toLowerCase().includes(input.toLowerCase())
+                    }
+                  >
+                    {suppliers.map(supplier => (
+                      <Option key={supplier.id} value={supplier.id}>
+                        {supplier.name || supplier.companyName || `Supplier ${supplier.id}`}
+                      </Option>
+                    ))}
                   </Select>
                 </Form.Item>
                 <Form.Item name="deliveryAddress" label="Delivery Address">

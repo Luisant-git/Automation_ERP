@@ -1,9 +1,31 @@
-import React from 'react'
-import { Card, Descriptions, Table, Button, Space, Tag, Divider } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Card, Descriptions, Table, Button, Space, Tag, Divider, message } from 'antd'
 import { PrinterOutlined, DownloadOutlined, EditOutlined, SendOutlined } from '@ant-design/icons'
+import { useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
+import { quotationAPI, useApiLoading } from '../../services/apiService'
 
-export default function QuotationView({ quotation }) {
+export default function QuotationView({ quotation: propQuotation }) {
+  const navigate = useNavigate()
+  const { id } = useParams()
+  const [quotation, setQuotation] = useState(propQuotation)
+  const { loading, executeWithLoading } = useApiLoading()
+
+  useEffect(() => {
+    if (!propQuotation && id) {
+      fetchQuotation()
+    }
+  }, [id, propQuotation])
+
+  const fetchQuotation = async () => {
+    try {
+      const data = await executeWithLoading(() => quotationAPI.getById(id))
+      setQuotation(data)
+    } catch (error) {
+      message.error('Failed to fetch quotation')
+      navigate('/quotations')
+    }
+  }
   const mockQuotation = {
     quotationId: 'QUO-2024-001',
     referenceNumber: 'REF-001',
@@ -49,6 +71,14 @@ export default function QuotationView({ quotation }) {
   }
 
   const data = quotation || mockQuotation
+
+  const handleEdit = () => {
+    navigate(`/quotations/edit/${data.id}`)
+  }
+
+  if (loading) {
+    return <div style={{ padding: '24px', textAlign: 'center' }}>Loading...</div>
+  }
 
   const columns = [
     {
@@ -104,7 +134,7 @@ export default function QuotationView({ quotation }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h2 style={{ margin: 0 }}>Quotation Details</h2>
           <Space>
-            <Button icon={<EditOutlined />}>Edit</Button>
+            <Button icon={<EditOutlined />} onClick={handleEdit}>Edit</Button>
             <Button icon={<SendOutlined />} type="primary">Send</Button>
             <Button icon={<PrinterOutlined />}>Print</Button>
             <Button icon={<DownloadOutlined />}>Download PDF</Button>

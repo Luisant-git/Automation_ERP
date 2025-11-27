@@ -2,19 +2,28 @@ import React, { useState, useEffect } from 'react'
 import { Modal, message, Tag } from 'antd'
 import ERPMasterLayout from '../../../components/ERPMasterLayout'
 import PurchaseReturnForm from './PurchaseReturnForm'
+import { purchaseReturnAPI, useApiLoading } from '../../../services/apiService'
 
 export default function PurchaseReturnList() {
   const [data, setData] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
+  const { loading, executeWithLoading } = useApiLoading()
 
   useEffect(() => {
     loadData()
   }, [])
 
-  const loadData = () => {
-    const returns = JSON.parse(localStorage.getItem('purchaseReturns') || '[]')
-    setData(returns)
+  const loadData = async () => {
+    try {
+      console.log('Fetching purchase returns...')
+      const returns = await executeWithLoading(() => purchaseReturnAPI.getAll())
+      console.log('Purchase returns:', returns)
+      setData(returns)
+    } catch (error) {
+      console.error('Error loading purchase returns:', error)
+      message.error('Failed to load purchase returns')
+    }
   }
 
   const columns = [
@@ -38,13 +47,14 @@ export default function PurchaseReturnList() {
     {
       title: 'Return Date',
       dataIndex: 'returnDate',
-      key: 'returnDate'
+      key: 'returnDate',
+      render: (date) => date ? new Date(date).toLocaleDateString('en-GB') : 'N/A'
     },
     {
       title: 'Supplier',
       dataIndex: 'supplierId',
       key: 'supplierId',
-      render: (id) => `Supplier ${id}`
+      render: (id, record) => record.supplier?.name || record.supplier?.companyName || `Supplier ${id}`
     },
     {
       title: 'Total Return Amount',
@@ -54,23 +64,24 @@ export default function PurchaseReturnList() {
     },
     {
       title: 'Items Count',
-      dataIndex: 'items',
+      dataIndex: 'lineItems',
       key: 'itemsCount',
-      render: (items) => (
-        <Tag color="orange">{items?.length || 0} items</Tag>
-      )
+      render: (lineItems) => {
+        const items = typeof lineItems === 'string' ? JSON.parse(lineItems) : lineItems
+        return <Tag color="orange">{items?.length || 0} items</Tag>
+      }
     },
     {
       title: 'Status',
-      dataIndex: 'returnStatus',
-      key: 'returnStatus',
+      dataIndex: 'status',
+      key: 'status',
       render: (status) => {
         const statusMap = {
-          1: { color: 'orange', text: 'Draft' },
-          2: { color: 'blue', text: 'Submitted' },
-          3: { color: 'green', text: 'Approved' }
+          'Draft': { color: 'orange', text: 'Draft' },
+          'Submitted': { color: 'blue', text: 'Submitted' },
+          'Approved': { color: 'green', text: 'Approved' }
         }
-        const info = statusMap[status] || { color: 'default', text: 'Unknown' }
+        const info = statusMap[status] || { color: 'default', text: status || 'Unknown' }
         return <Tag color={info.color}>{info.text}</Tag>
       }
     }
@@ -92,7 +103,12 @@ export default function PurchaseReturnList() {
   }
 
   const handleEdit = (record) => {
-    setEditingRecord(record)
+    const editData = {
+      ...record,
+      items: typeof record.lineItems === 'string' ? JSON.parse(record.lineItems) : record.lineItems || [],
+      returnStatus: record.status === 'Draft' ? 1 : record.status === 'Submitted' ? 2 : 3
+    }
+    setEditingRecord(editData)
     setShowForm(true)
   }
 
@@ -100,19 +116,22 @@ export default function PurchaseReturnList() {
     Modal.confirm({
       title: 'Delete Purchase Return',
       content: `Delete Return ${record.returnNumber}?`,
-      onOk: () => {
-        const updated = data.filter(item => item.id !== record.id)
-        localStorage.setItem('purchaseReturns', JSON.stringify(updated))
-        setData(updated)
-        message.success('Deleted successfully')
+      onOk: async () => {
+        try {
+          await executeWithLoading(() => purchaseReturnAPI.delete(record.id))
+          await loadData()
+          message.success('Deleted successfully')
+        } catch (error) {
+          message.error('Failed to delete purchase return')
+        }
       }
     })
   }
 
-  const handleFormClose = () => {
+  const handleFormClose = async () => {
     setShowForm(false)
     setEditingRecord(null)
-    loadData()
+    await loadData()
   }
 
   if (showForm) {
@@ -136,6 +155,7 @@ export default function PurchaseReturnList() {
       onEdit={handleEdit}
       onDelete={handleDelete}
       buttonType="return"
+      loading={loading}
     />
   )
 }

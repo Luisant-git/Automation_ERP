@@ -1,23 +1,23 @@
 import { Module } from '@nestjs/common';
-import { LedgerService } from './admin/ledger.service';
-import { TaxRateService } from './admin/tax-rate.service';
-import { BrandService } from './admin/brand.service';
-import { CategoryService } from './admin/category.service';
-import { MaterialService } from './admin/material.service';
-import { EmployeeService } from './admin/employee.service';
-import { CustomerService } from './admin/customer.service';
-import { SupplierService } from './admin/supplier.service';
-import { OpeningStockService } from './admin/opening-stock.service';
-import { LedgerController } from './admin/ledger.controller';
-import { TaxRateController } from './admin/tax-rate.controller';
-import { BrandController } from './admin/brand.controller';
-import { CategoryController } from './admin/category.controller';
-import { MaterialController } from './admin/material.controller';
-import { EmployeeController } from './admin/employee.controller';
-import { CustomerController } from './admin/customer.controller';
-import { SupplierController } from './admin/supplier.controller';
-import { OpeningStockController } from './admin/opening-stock.controller';
-import { PrismaService } from './admin/prisma.service';
+import { LedgerService } from './modules/masters/ledger/ledger.service';
+import { TaxRateService } from './modules/masters/tax-rate/tax-rate.service';
+import { BrandService } from './modules/masters/brand/brand.service';
+import { CategoryService } from './modules/masters/category/category.service';
+import { MaterialService } from './modules/masters/material/material.service';
+import { EmployeeService } from './modules/masters/employee/employee.service';
+import { CustomerService } from './modules/masters/customer/customer.service';
+import { SupplierService } from './modules/masters/supplier/supplier.service';
+import { OpeningStockService } from './modules/transactions/opening-stock/opening-stock.service';
+import { LedgerController } from './modules/masters/ledger/ledger.controller';
+import { TaxRateController } from './modules/masters/tax-rate/tax-rate.controller';
+import { BrandController } from './modules/masters/brand/brand.controller';
+import { CategoryController } from './modules/masters/category/category.controller';
+import { MaterialController } from './modules/masters/material/material.controller';
+import { EmployeeController } from './modules/masters/employee/employee.controller';
+import { CustomerController } from './modules/masters/customer/customer.controller';
+import { SupplierController } from './modules/masters/supplier/supplier.controller';
+import { OpeningStockController } from './modules/transactions/opening-stock/opening-stock.controller';
+import { PrismaService } from './modules/common/prisma/prisma.service';
 
 @Module({
   controllers: [

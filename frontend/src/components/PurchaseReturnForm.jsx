@@ -17,6 +17,7 @@ import {
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { purchaseReturnAPI, purchaseOrderEntryAPI, supplierAPI, useApiLoading } from '../services/apiService'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -25,20 +26,34 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
   const [form] = Form.useForm()
   const [returnDetails, setReturnDetails] = useState([])
   const [purchaseEntries, setPurchaseEntries] = useState([])
+  const [suppliers, setSuppliers] = useState([])
+  const { loading, executeWithLoading } = useApiLoading()
 
   // Generate Return Number
-  const generateReturnNumber = () => {
-    const date = new Date()
-    const year = date.getFullYear().toString().slice(-2)
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-    return `RET${year}${month}${random}`
+  const generateReturnNumber = async () => {
+    try {
+      const existing = await executeWithLoading(() => purchaseReturnAPI.getAll())
+      const prefix = 'PR-'
+      const numbers = existing.map(entry => parseInt(entry.returnNumber?.replace(prefix, '') || '0'))
+      const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
+      return `${prefix}${String(lastNumber + 1).padStart(4, '0')}`
+    } catch (error) {
+      return 'PR-0001'
+    }
   }
 
-  // Load purchase entries
-  const loadPurchaseEntries = () => {
-    const entries = JSON.parse(localStorage.getItem('purchaseOrderEntries') || '[]')
-    setPurchaseEntries(entries)
+  // Load purchase entries and suppliers
+  const loadPurchaseEntries = async () => {
+    try {
+      const [entries, suppliersData] = await Promise.all([
+        executeWithLoading(() => purchaseOrderEntryAPI.getAll()),
+        executeWithLoading(() => supplierAPI.getAll())
+      ])
+      setPurchaseEntries(entries)
+      setSuppliers(suppliersData)
+    } catch (error) {
+      message.error('Failed to load data')
+    }
   }
 
   // Get available items from selected invoice
@@ -46,7 +61,9 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
     const invoiceNumber = form.getFieldValue('purchaseInvoiceNumber')
     if (!invoiceNumber) return []
     const entry = purchaseEntries.find(e => e.purchaseInvoiceNumber === invoiceNumber)
-    return entry?.items || []
+    if (!entry) return []
+    const items = typeof entry.lineItems === 'string' ? JSON.parse(entry.lineItems) : entry.lineItems || []
+    return items
   }
 
   // Handle purchase invoice selection
@@ -60,21 +77,25 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
 
   // Initialize form
   useEffect(() => {
-    loadPurchaseEntries()
-    if (editingReturn) {
-      form.setFieldsValue({
-        ...editingReturn,
-        returnDate: editingReturn.returnDate ? dayjs(editingReturn.returnDate) : dayjs(),
-        creditNoteDate: editingReturn.creditNoteDate ? dayjs(editingReturn.creditNoteDate) : null
-      })
-      setReturnDetails(editingReturn.details || [])
-    } else {
-      form.setFieldsValue({
-        returnNumber: generateReturnNumber(),
-        returnDate: dayjs(),
-        returnStatus: 1
-      })
+    const initializeForm = async () => {
+      await loadPurchaseEntries()
+      if (editingReturn) {
+        form.setFieldsValue({
+          ...editingReturn,
+          returnDate: editingReturn.returnDate ? dayjs(editingReturn.returnDate) : dayjs(),
+          creditNoteDate: editingReturn.creditNoteDate ? dayjs(editingReturn.creditNoteDate) : null
+        })
+        setReturnDetails(editingReturn.details || [])
+      } else {
+        const returnNumber = await generateReturnNumber()
+        form.setFieldsValue({
+          returnNumber,
+          returnDate: dayjs(),
+          returnStatus: 1
+        })
+      }
     }
+    initializeForm()
   }, [editingReturn])
 
   // Item management
@@ -371,36 +392,39 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
   const handleSubmit = async (values) => {
     try {
       const returnData = {
-        ...values,
-        details: returnDetails,
-        ...totals,
+        returnNumber: values.returnNumber,
+        purchaseInvoiceNumber: values.purchaseInvoiceNumber || '',
+        supplierId: values.supplierId,
         returnDate: values.returnDate?.format('YYYY-MM-DD'),
-        creditNoteDate: values.creditNoteDate?.format('YYYY-MM-DD'),
-        createdDate: new Date().toISOString(),
-        createdBy: 1,
-        companyId: 1,
-        financialYearId: 1,
-        isActive: true
+        returnType: values.returnType ? String(values.returnType) : undefined,
+        reason: values.reason || '',
+        lineItems: JSON.stringify(returnDetails),
+        subtotal: totals.totalTaxableAmount || 0,
+        totalDiscount: 0,
+        gstDetails: JSON.stringify({
+          cgst: totals.totalCGSTAmount || 0,
+          sgst: totals.totalSGSTAmount || 0,
+          igst: totals.totalIGSTAmount || 0
+        }),
+        totalAmount: totals.netAmount || 0,
+        notes: values.creditNoteNumber || '',
+        status: values.returnStatus === 1 ? 'Draft' : values.returnStatus === 2 ? 'Submitted' : 'Approved'
       }
 
-      const existingReturns = JSON.parse(localStorage.getItem('purchaseReturns') || '[]')
+      console.log('Submitting return data:', returnData)
 
       if (editingReturn) {
-        const updatedReturns = existingReturns.map(ret =>
-          ret.id === editingReturn.id ? { ...returnData, id: editingReturn.id } : ret
-        )
-        localStorage.setItem('purchaseReturns', JSON.stringify(updatedReturns))
+        await executeWithLoading(() => purchaseReturnAPI.update(editingReturn.id, returnData))
         message.success('Purchase Return updated successfully!')
       } else {
-        const newReturn = { id: Date.now(), ...returnData }
-        existingReturns.push(newReturn)
-        localStorage.setItem('purchaseReturns', JSON.stringify(existingReturns))
+        await executeWithLoading(() => purchaseReturnAPI.create(returnData))
         message.success('Purchase Return saved successfully!')
       }
 
       onClose && onClose()
     } catch (error) {
-      message.error('Failed to save Purchase Return')
+      console.error('Submit error:', error)
+      message.error(error.response?.data?.message || 'Failed to save Purchase Return')
     }
   }
 
@@ -466,8 +490,11 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
                 </Form.Item>
                 <Form.Item name="supplierId" label="Supplier" rules={[{ required: true }]}>
                   <Select placeholder="Select Supplier" disabled>
-                    <Option value={1}>Supplier 1</Option>
-                    <Option value={2}>Supplier 2</Option>
+                    {suppliers.map(supplier => (
+                      <Option key={supplier.id} value={supplier.id}>
+                        {supplier.name || supplier.companyName || `Supplier ${supplier.id}`}
+                      </Option>
+                    ))}
                   </Select>
                 </Form.Item>
                 <Row gutter={16}>
