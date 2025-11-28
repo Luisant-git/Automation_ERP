@@ -6,4 +6,5 @@ export const materialAPI = {
   create: (data) => apiClient.post('/material', data),
   update: (id, data) => apiClient.patch(`/material/${id}`, data),
   delete: (id) => apiClient.delete(`/material/${id}`),
+  search: (query) => apiClient.get(`/material/search?q=${encodeURIComponent(query)}`),
 };

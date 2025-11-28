@@ -22,7 +22,7 @@ export class PurchaseOrderService {
         description: data.description,
         status: data.status || 'Draft',
         workOrderNumber: data.workOrderNumber,
-        lineItems: data.lineItems,
+        lineItems: data.lineItems ?? [],
         subtotal: data.subtotal,
         totalDiscount: data.totalDiscount || 0,
         gstDetails: data.gstDetails,
@@ -54,8 +54,25 @@ export class PurchaseOrderService {
     return this.prisma.purchaseOrder.update({ 
       where: { id }, 
       data: {
-        ...data,
-        purchaseOrderDate: data.purchaseOrderDate ? new Date(data.purchaseOrderDate) : undefined
+        purchaseOrderNumber: data.purchaseOrderNumber,
+        baseNumber: data.baseNumber,
+        version: data.version,
+        purchaseOrderId: data.purchaseOrderId,
+        purchaseOrderType: data.purchaseOrderType,
+        purchaseOrderDate: data.purchaseOrderDate ? new Date(data.purchaseOrderDate) : undefined,
+        validityDays: data.validityDays,
+        supplierId: data.supplierId,
+        projectName: data.projectName,
+        description: data.description,
+        status: data.status,
+        workOrderNumber: data.workOrderNumber,
+        lineItems: data.lineItems ?? undefined,
+        subtotal: data.subtotal,
+        totalDiscount: data.totalDiscount,
+        gstDetails: data.gstDetails,
+        totalAmount: data.totalAmount,
+        termsAndConditions: data.termsAndConditions,
+        excelFile: data.excelFile
       }
     });
   }

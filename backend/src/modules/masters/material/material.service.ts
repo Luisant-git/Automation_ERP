@@ -55,7 +55,10 @@ export class MaterialService {
   }
 
   findOne(id: number): Promise<Material | null> {
-    return this.prisma.material.findUnique({ where: { id }, include: { category: true, brandRelation: true } });
+    return this.prisma.material.findUnique({ 
+      where: { id }, 
+      include: { category: true, brandRelation: true } 
+    });
   }
 
   update(id: number, data: UpdateMaterialDto): Promise<Material> {
@@ -64,5 +67,18 @@ export class MaterialService {
 
   delete(id: number): Promise<Material> {
     return this.prisma.material.delete({ where: { id } });
+  }
+
+  search(query: string): Promise<Material[]> {
+    return this.prisma.material.findMany({
+      where: {
+        OR: [
+          { itemName: { contains: query, mode: 'insensitive' } },
+          { itemCode: { contains: query, mode: 'insensitive' } }
+        ]
+      },
+      include: { category: true, brandRelation: true },
+      take: 10
+    });
   }
 }

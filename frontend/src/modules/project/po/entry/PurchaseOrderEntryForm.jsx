@@ -87,9 +87,7 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
         })
         setItems(editingOrder.items || [])
       } else {
-        const invoiceNumber = await generatePurchaseInvoiceNumber()
         form.setFieldsValue({
-          purchaseInvoiceNumber: invoiceNumber,
           poDate: dayjs(),
           poStatus: 1,
           currencyId: 1,
@@ -587,8 +585,8 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
           <Card size="small" title="Order Details" style={{ marginBottom: '16px' }}>
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="purchaseInvoiceNumber" label="Purchase Invoice Number">
-                  <Input disabled placeholder="Auto-generated" />
+                <Form.Item name="purchaseInvoiceNumber" label="Purchase Invoice Number" rules={[{ required: true }]}>
+                  <Input placeholder="Enter Purchase Invoice Number" />
                 </Form.Item>
                 <Form.Item name="poNumber" label="PO Number" rules={[{ required: true }]}>
                   <Select 
@@ -604,7 +602,7 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
                       .filter(order => order.status === 'Approved' || order.poStatus === 3)
                       .map(order => (
                         <Option key={order.id} value={order.poNumber || order.purchaseOrderNumber}>
-                          {order.poNumber || order.purchaseOrderNumber} - {order.projectName || 'N/A'}
+                          {order.poNumber || order.purchaseOrderNumber}{order.projectName ? ` - ${order.projectName}` : ''}
                         </Option>
                       ))}
                   </Select>

@@ -8,13 +8,15 @@ export class QuotationService {
   constructor(private prisma: PrismaService) {}
 
   create(data: CreateQuotationDto): Promise<Quotation> {
+    const { createdDate, ...restData } = data as any;
     return this.prisma.quotation.create({ 
       data: {
-        ...data,
+        ...restData,
         quotationDate: new Date(data.quotationDate),
         version: data.version || 0,
         totalDiscount: data.totalDiscount || 0,
-        status: data.status || 'Draft'
+        status: data.status || 'Draft',
+        ...(createdDate && { createdDate: new Date(createdDate) })
       }
     });
   }

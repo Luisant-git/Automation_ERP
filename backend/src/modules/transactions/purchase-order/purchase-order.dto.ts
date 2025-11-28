@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsDateString, IsArray } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString, IsArray, ValidateIf } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreatePurchaseOrderDto {
@@ -35,8 +35,8 @@ export class CreatePurchaseOrderDto {
   @IsString()
   workOrderNumber?: string;
 
-  @IsArray()
-  lineItems: any[];
+  @IsOptional()
+  lineItems?: any;
 
   @IsNumber()
   subtotal: number;

@@ -15,9 +15,9 @@ import {
   Typography,
   Divider
 } from 'antd'
-import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined, ArrowLeftOutlined, MinusOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, SaveOutlined, PrinterOutlined, ArrowLeftOutlined, MinusOutlined, ReloadOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { purchaseOrderAPI, supplierAPI, quotationAPI, useApiLoading } from '../services/apiService'
+import { purchaseOrderAPI, supplierAPI, quotationAPI, materialAPI, useApiLoading } from '../services/apiService'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -215,26 +215,59 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
     updateRemainingBudget(updatedItems)
   }
 
-  const updateItem = (key, field, value) => {
+  const updateItem = async (key, field, value) => {
+    // Handle material search for itemCode separately
+    if (field === 'itemCode' && value) {
+      try {
+        const response = await materialAPI.search(value)
+        const searchResults = response.data || response
+        const material = searchResults.find(m => m.itemCode === value || m.itemName.toLowerCase().includes(value.toLowerCase()))
+        
+        if (material) {
+          const updatedItems = items.map(item => {
+            if (item.key === key) {
+              const updatedItem = {
+                ...item,
+                [field]: value,
+                itemName: material.itemName || '',
+                category: material.itemCategory || '',
+                hsnCode: material.hsnCode || '',
+                rate: material.purchaseRate || 0,
+                cgstPercentage: (material.tax || 18) / 2,
+                sgstPercentage: (material.tax || 18) / 2
+              }
+              
+              // Recalculate amounts
+              const taxableAmount = (updatedItem.quantity * updatedItem.rate) - (updatedItem.discountAmount || 0)
+              const cgstAmount = taxableAmount * (updatedItem.cgstPercentage || 0) / 100
+              const sgstAmount = taxableAmount * (updatedItem.sgstPercentage || 0) / 100
+              const igstAmount = taxableAmount * (updatedItem.igstPercentage || 0) / 100
+              const totalAmount = taxableAmount + cgstAmount + sgstAmount + igstAmount
+              
+              return {
+                ...updatedItem,
+                taxableAmount,
+                cgstAmount,
+                sgstAmount,
+                igstAmount,
+                totalAmount
+              }
+            }
+            return item
+          })
+          setItems(updatedItems)
+          updateRemainingBudget(updatedItems)
+          return
+        }
+      } catch (error) {
+        console.error('Error searching materials:', error)
+      }
+    }
+    
+    // Handle regular field updates
     const updatedItems = items.map(item => {
       if (item.key === key) {
-        let updatedItem = { ...item, [field]: value }
-        
-        // Auto-fill from material master when itemCode is selected
-        if (field === 'itemCode') {
-          const material = materials.find(m => m.itemCode === value)
-          if (material) {
-            updatedItem = {
-              ...updatedItem,
-              itemName: material.itemName || '',
-              category: material.itemCategory || '',
-              hsnCode: material.hsnCode || '',
-              rate: material.purchaseRate || 0,
-              cgstPercentage: (material.tax || 18) / 2,
-              sgstPercentage: (material.tax || 18) / 2
-            }
-          }
-        }
+        const updatedItem = { ...item, [field]: value }
         
         // Recalculate amounts
         const taxableAmount = (updatedItem.quantity * updatedItem.rate) - (updatedItem.discountAmount || 0)
@@ -385,7 +418,38 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                 setItems(updatedItems)
                 updateRemainingBudget(updatedItems)
               } else {
-                updateItem(record.key, 'itemName', value)
+                // Search for material by item name to auto-fetch HSN code
+                materialAPI.search(value).then(response => {
+                  const searchResults = response.data || response
+                  const material = searchResults.find(m => 
+                    m.itemName.toLowerCase() === value.toLowerCase() ||
+                    m.itemName.toLowerCase().includes(value.toLowerCase())
+                  )
+                  if (material) {
+                    const updatedItems = items.map(item => {
+                      if (item.key === record.key) {
+                        return {
+                          ...item,
+                          itemName: value,
+                          itemCode: material.itemCode || '',
+                          category: material.itemCategory || '',
+                          hsnCode: material.hsnCode || '',
+                          rate: material.purchaseRate || 0,
+                          cgstPercentage: (material.tax || 18) / 2,
+                          sgstPercentage: (material.tax || 18) / 2
+                        }
+                      }
+                      return item
+                    })
+                    setItems(updatedItems)
+                    updateRemainingBudget(updatedItems)
+                  } else {
+                    updateItem(record.key, 'itemName', value)
+                  }
+                }).catch(error => {
+                  console.error('Error searching materials:', error)
+                  updateItem(record.key, 'itemName', value)
+                })
               }
             }}
             style={{ width: '100%' }}
@@ -681,7 +745,7 @@ export default function PurchaseOrderForm({ editingOrder, onOrderSaved }) {
                   </div>
                   <Button 
                     size="small"
-                    icon={<PlusOutlined />} 
+                    icon={<ReloadOutlined />} 
                     onClick={loadData}
                     title="Refresh Suppliers"
                     loading={loading}

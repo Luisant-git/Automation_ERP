@@ -16,7 +16,7 @@ export class PurchaseEntryService {
         invoiceDate: new Date(data.invoiceDate),
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
         referenceNumber: data.referenceNumber,
-        lineItems: data.lineItems,
+        lineItems: data.lineItems ?? [],
         subtotal: data.subtotal,
         totalDiscount: data.totalDiscount || 0,
         gstDetails: data.gstDetails,
@@ -51,9 +51,19 @@ export class PurchaseEntryService {
     return this.prisma.purchaseEntry.update({
       where: { id },
       data: {
-        ...data,
+        purchaseInvoiceNumber: data.purchaseInvoiceNumber,
+        purchaseOrderId: data.purchaseOrderId,
+        supplierId: data.supplierId,
         invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : undefined,
-        dueDate: data.dueDate ? new Date(data.dueDate) : undefined
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        referenceNumber: data.referenceNumber,
+        lineItems: data.lineItems ?? undefined,
+        subtotal: data.subtotal,
+        totalDiscount: data.totalDiscount,
+        gstDetails: data.gstDetails,
+        totalAmount: data.totalAmount,
+        notes: data.notes,
+        status: data.status
       }
     });
   }

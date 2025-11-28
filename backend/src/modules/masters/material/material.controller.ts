@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { MaterialService } from './material.service';
 
 @Controller('material')
@@ -13,6 +13,11 @@ export class MaterialController {
   @Get()
   findAll() {
     return this.materialService.findAll();
+  }
+
+  @Get('search')
+  search(@Query('q') query: string) {
+    return this.materialService.search(query);
   }
 
   @Get(':id')

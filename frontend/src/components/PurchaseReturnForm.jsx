@@ -481,11 +481,17 @@ export default function PurchaseReturnForm({ editingReturn, onClose }) {
                     showSearch
                     onChange={handleInvoiceSelect}
                   >
-                    {purchaseEntries.map(entry => (
-                      <Option key={entry.id} value={entry.purchaseInvoiceNumber}>
-                        {entry.purchaseInvoiceNumber}
-                      </Option>
-                    ))}
+                    {purchaseEntries
+                      .filter(entry => 
+                        (entry.status === 'Approved' || entry.poStatus === 3) && 
+                        entry.purchaseInvoiceNumber
+                      )
+                      .map(entry => (
+                        <Option key={entry.id} value={entry.purchaseInvoiceNumber}>
+                          {entry.purchaseInvoiceNumber}
+                        </Option>
+                      ))
+                    }
                   </Select>
                 </Form.Item>
                 <Form.Item name="supplierId" label="Supplier" rules={[{ required: true }]}>

@@ -22,8 +22,8 @@ export class CreatePurchaseEntryDto {
   @IsString()
   referenceNumber?: string;
 
-  @IsArray()
-  lineItems: any[];
+  @IsOptional()
+  lineItems?: any;
 
   @IsNumber()
   subtotal: number;

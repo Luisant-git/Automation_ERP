@@ -65,7 +65,9 @@ export class CreateQuotationDto {
   @IsNumber()
   version?: number;
 
-
+  @IsOptional()
+  @IsDateString()
+  createdDate?: string;
 }
 
 export class UpdateQuotationDto extends PartialType(CreateQuotationDto) {}

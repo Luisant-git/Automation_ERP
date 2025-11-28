@@ -143,6 +143,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
 
       description1: '',
       description2: '',
+      hsnCode: '',
       quantity: 1,
       unitPrice: 0,
       discount: 0,
@@ -171,6 +172,7 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
               ...updated,
               itemName: material.itemName || '',
               category: material.category?.name || material.itemCategory || '',
+              hsnCode: material.hsnCode || '',
               unitPrice: material.sellingRate || 0,
               tax: material.tax || 18
             }
@@ -343,7 +345,19 @@ export default function QuotationForm({ initialValues, onSubmit, onCancel }) {
         />
       )
     },
-
+    {
+      title: 'HSN/SAC',
+      dataIndex: 'hsnCode',
+      width: 100,
+      render: (text, record) => (
+        <Input
+          value={text}
+          onChange={(e) => updateLineItem(record.key, 'hsnCode', e.target.value)}
+          placeholder="HSN/SAC"
+          style={{ width: '100%' }}
+        />
+      )
+    },
     {
       title: 'Description 1',
       dataIndex: 'description1',
