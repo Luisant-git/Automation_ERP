@@ -2,6 +2,10 @@ import { IsString, IsNumber, IsOptional, IsDateString, IsArray } from 'class-val
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreatePurchaseEntryDto {
+  @IsOptional()
+  @IsString()
+  purchaseEntryNumber?: string;
+
   @IsString()
   purchaseInvoiceNumber: string;
 

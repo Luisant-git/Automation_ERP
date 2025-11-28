@@ -22,6 +22,12 @@ export default function PurchaseOrderEntryList({ onEdit, onAdd }) {
 
   const columns = [
     {
+      title: 'Purchase Entry Number',
+      dataIndex: 'purchaseEntryNumber',
+      key: 'purchaseEntryNumber',
+      render: (text) => <strong style={{ color: '#722ed1' }}>{text || 'N/A'}</strong>
+    },
+    {
       title: 'Purchase Invoice Number',
       dataIndex: 'purchaseInvoiceNumber',
       key: 'purchaseInvoiceNumber',

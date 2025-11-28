@@ -35,16 +35,16 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
 
 
 
-  // Generate Purchase Invoice Number
-  const generatePurchaseInvoiceNumber = async () => {
+  // Generate Purchase Entry Number
+  const generatePurchaseEntryNumber = async () => {
     try {
       const existing = await executeWithLoading(() => purchaseOrderEntryAPI.getAll())
-      const prefix = 'PI-'
-      const numbers = existing.map(entry => parseInt(entry.purchaseInvoiceNumber?.replace(prefix, '') || '0'))
+      const prefix = 'PE-'
+      const numbers = existing.map(entry => parseInt(entry.purchaseEntryNumber?.replace(prefix, '') || '0'))
       const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0
       return `${prefix}${String(lastNumber + 1).padStart(4, '0')}`
     } catch (error) {
-      const prefix = 'PI-'
+      const prefix = 'PE-'
       return `${prefix}0001`
     }
   }
@@ -87,7 +87,9 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
         })
         setItems(editingOrder.items || [])
       } else {
+        const entryNumber = await generatePurchaseEntryNumber()
         form.setFieldsValue({
+          purchaseEntryNumber: entryNumber,
           poDate: dayjs(),
           poStatus: 1,
           currencyId: 1,
@@ -431,23 +433,40 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
         let originalQty = 0
         selectedPOs.forEach(po => {
           const poItems = Array.isArray(po.items) ? po.items : 
-                         Array.isArray(po.lineItems) ? po.lineItems : []
-          const poItem = poItems.find(item => 
-            item.description === record.itemName || 
-            item.itemName === record.itemName ||
-            item.name === record.itemName
-          )
-          if (poItem) {
-            originalQty += poItem.quantity || 0
-          }
+                         Array.isArray(po.lineItems) ? po.lineItems : 
+                         (typeof po.lineItems === 'string' ? JSON.parse(po.lineItems) : [])
+          
+          poItems.forEach(item => {
+            const itemNameMatch = item.description === record.itemName || 
+                                 item.itemName === record.itemName ||
+                                 item.name === record.itemName
+            const itemCodeMatch = record.itemCode && (item.itemCode === record.itemCode)
+            
+            if (itemNameMatch || itemCodeMatch) {
+              console.log('Found PO Item:', {
+                poNumber: po.poNumber || po.purchaseOrderNumber,
+                itemName: item.itemName || item.description || item.name,
+                quantity: item.quantity
+              })
+              originalQty += item.quantity || 0
+            }
+          })
         })
         
-        // Calculate already ordered quantity for this item
-        const orderedQty = items
-          .filter(item => item.itemName === record.itemName && item.key !== record.key)
+        // Calculate total ordered quantity for this item (including current row)
+        const totalOrderedQty = items
+          .filter(item => item.itemName === record.itemName)
           .reduce((sum, item) => sum + (item.quantity || 0), 0)
         
-        const balance = originalQty - orderedQty - (record.quantity || 0)
+        const balance = originalQty - totalOrderedQty
+        
+        console.log('Balance Qty Calculation:', {
+          itemName: record.itemName,
+          originalQty,
+          totalOrderedQty,
+          currentQty: record.quantity,
+          balance
+        })
         return (
           <span style={{ color: balance < 0 ? '#ff4d4f' : balance === 0 ? '#faad14' : '#52c41a' }}>
             {balance}
@@ -526,6 +545,7 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
   const handleSubmit = async (values) => {
     try {
       const orderData = {
+        purchaseEntryNumber: values.purchaseEntryNumber,
         purchaseInvoiceNumber: values.purchaseInvoiceNumber,
         purchaseOrderId: Array.isArray(values.poNumber) ? values.poNumber[0] : values.poNumber,
         supplierId: values.supplierId,
@@ -585,6 +605,9 @@ export default function PurchaseOrderEntryForm({ editingOrder, onOrderSaved }) {
           <Card size="small" title="Order Details" style={{ marginBottom: '16px' }}>
             <Row gutter={16}>
               <Col span={12}>
+                <Form.Item name="purchaseEntryNumber" label="Purchase Entry Number" rules={[{ required: true }]}>
+                  <Input placeholder="Auto-generated" disabled />
+                </Form.Item>
                 <Form.Item name="purchaseInvoiceNumber" label="Purchase Invoice Number" rules={[{ required: true }]}>
                   <Input placeholder="Enter Purchase Invoice Number" />
                 </Form.Item>

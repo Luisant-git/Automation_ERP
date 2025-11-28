@@ -17,6 +17,7 @@ import { EmployeeController } from './modules/masters/employee/employee.controll
 import { CustomerController } from './modules/masters/customer/customer.controller';
 import { SupplierController } from './modules/masters/supplier/supplier.controller';
 import { OpeningStockController } from './modules/transactions/opening-stock/opening-stock.controller';
+import { ProjectAssignmentController } from './modules/masters/project-assignment.controller';
 import { PrismaService } from './modules/common/prisma/prisma.service';
 
 @Module({
@@ -30,6 +31,7 @@ import { PrismaService } from './modules/common/prisma/prisma.service';
     CustomerController,
     SupplierController,
     OpeningStockController,
+    ProjectAssignmentController,
   ],
   providers: [
     LedgerService,

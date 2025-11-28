@@ -212,6 +212,7 @@ model PurchaseOrder {
 
 model PurchaseEntry {
   id    Int     @id @default(autoincrement())
+  purchaseEntryNumber String? @unique
   purchaseInvoiceNumber String @unique
   purchaseOrderId String
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [purchaseOrderNumber])

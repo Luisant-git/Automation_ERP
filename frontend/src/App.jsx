@@ -25,6 +25,8 @@ import { ProjectList, CreateProject } from './modules/project/management'
 import ServiceAssignment from './modules/project/service/ServiceAssignment'
 import ServiceStatus from './modules/project/service/ServiceStatus'
 import CreateServiceAssignment from './modules/project/service/CreateServiceAssignment'
+import ProjectAssignmentPage from './pages/ProjectAssignmentPage'
+import ProjectTrackingPage from './pages/ProjectTrackingPage'
 
 import SalesOrderForm from './modules/project/invoice/SalesInvoiceForm'
 import SalesReturns from './modules/sales/returns/SalesReturns'
@@ -89,6 +91,8 @@ export default function App() {
           <Route path="procurement/purchase-return-details" element={<PurchaseReturnDetails />} />
           <Route path="projects/list" element={<ProjectList />} />
           <Route path="projects/create" element={<CreateProject />} />
+          <Route path="projects/planning" element={<ProjectAssignmentPage />} />
+          <Route path="projects/tracking" element={<ProjectTrackingPage />} />
           <Route path="operations/service-assign" element={<ServiceAssignment />} />
           <Route path="operations/service-assign/create" element={<CreateServiceAssignment />} />
           <Route path="operations/service-status" element={<ServiceStatus />} />

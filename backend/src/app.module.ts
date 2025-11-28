@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { QuotationModule } from './modules/transactions/quotation/quotation.module';
 import { PurchaseOrderModule } from './modules/transactions/purchase-order/purchase-order.module';
+import { MasterModule } from './master.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { PurchaseOrderModule } from './modules/transactions/purchase-order/purch
     AdminModule,
     QuotationModule,
     PurchaseOrderModule,
+    MasterModule,
   ],
   controllers: [AppController],
   providers: [AppService],

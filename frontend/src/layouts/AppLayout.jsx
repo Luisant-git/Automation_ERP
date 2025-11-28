@@ -45,17 +45,7 @@ const menuItems = [
       // { key:'/operations/service-status', label:<NavLink to="/operations/service-status">Service Status</NavLink> },
     ]
   },
-  // {
-  //   key: '/projects',
-  //   icon: <AppstoreOutlined/>,
-  //   label: 'Project Management',
-  //   children: [
-  //     { key:'/projects/create', label:<NavLink to="/projects/create">Create Project</NavLink> },
-  //     { key:'/projects/list', label:<NavLink to="/projects/list">Project List</NavLink> },
-  //     { key:'/projects/planning', label:<NavLink to="/projects/planning">Project Assignment</NavLink> },
-  //     { key:'/projects/tracking', label:<NavLink to="/projects/tracking">Project Tracking</NavLink> },
-  //   ]
-  // },
+ 
   {
     key: '/procurement',
     icon: <ShoppingCartOutlined/>,
@@ -67,6 +57,17 @@ const menuItems = [
        { key:'/procurement/purchase-return-master', label:<NavLink to="/procurement/purchase-return-master">Purchase Returns</NavLink> },
       // { key:'/procurement/purchase-return-master', label:<NavLink to="/procurement/purchase-return-master">Purchase Return Master</NavLink> },
       // { key:'/procurement/purchase-return-details', label:<NavLink to="/procurement/purchase-return-details">Purchase Return Details</NavLink> },
+    ]
+  },
+   {
+    key: '/projects',
+    icon: <AppstoreOutlined/>,
+    label: 'Project Management',
+    children: [
+      // { key:'/projects/create', label:<NavLink to="/projects/create">Create Project</NavLink> },
+      // { key:'/projects/list', label:<NavLink to="/projects/list">Project List</NavLink> },
+      { key:'/projects/planning', label:<NavLink to="/projects/planning">Project Assignment</NavLink> },
+      { key:'/projects/tracking', label:<NavLink to="/projects/tracking">Project Tracking</NavLink> },
     ]
   },
   // {

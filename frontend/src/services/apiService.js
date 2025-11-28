@@ -64,7 +64,8 @@ export {
   purchaseOrderAPI,
   purchaseEntryAPI,
   purchaseOrderEntryAPI,
-  purchaseReturnAPI
+  purchaseReturnAPI,
+  projectAssignmentAPI
 } from './transaction';
 
 

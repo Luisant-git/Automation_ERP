@@ -10,6 +10,7 @@ export class PurchaseEntryService {
   create(data: CreatePurchaseEntryDto): Promise<PurchaseEntry> {
     return this.prisma.purchaseEntry.create({
       data: {
+        purchaseEntryNumber: data.purchaseEntryNumber,
         purchaseInvoiceNumber: data.purchaseInvoiceNumber,
         purchaseOrderId: data.purchaseOrderId,
         supplierId: data.supplierId,
@@ -51,6 +52,7 @@ export class PurchaseEntryService {
     return this.prisma.purchaseEntry.update({
       where: { id },
       data: {
+        purchaseEntryNumber: data.purchaseEntryNumber,
         purchaseInvoiceNumber: data.purchaseInvoiceNumber,
         purchaseOrderId: data.purchaseOrderId,
         supplierId: data.supplierId,
